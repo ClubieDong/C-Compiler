@@ -2,7 +2,7 @@
 
 EXE_NAME = exe
 OBJ = src/Main.cpp
-DEPENDENCIES = src/AST.hpp src/Utilities.hpp src/SymbolTable.hpp
+DEPENDENCIES = src/AST/AST.hpp src/AST/Base.hpp src/AST/Declarations.hpp src/AST/Expressions.hpp src/AST/Statements.hpp src/SymbolTable.hpp
 FLAGS = -O0 -g -std=c++17 -Wall
 
 build/${EXE_NAME}: ${OBJ} ${DEPENDENCIES} src/Scanner/lex.cc src/Parser/parse.cc
