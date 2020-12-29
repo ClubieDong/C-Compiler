@@ -4,6 +4,8 @@
 #include <vector>
 #include <cassert>
 #include <iostream>
+#include <optional>
+#include <string>
 #include "Utilities.hpp"
 
 namespace ast
@@ -144,32 +146,41 @@ namespace ast
         }
     };
 
-    class ArgList : public Base
+    class CallExpr : public Expression
     {
-        friend class CallExpr;
-
     private:
+        ptr<Expression> _Func;
         arr<ptr<Expression>> _ArgList;
 
     public:
-        inline explicit ArgList() = default;
-        inline explicit ArgList(ptr<Expression> expr) { _ArgList.push_back(std::move(expr)); }
-        inline static ptr<Base> Create() { return std::make_unique<ArgList>(); }
+        inline explicit CallExpr() = default;
+        inline explicit CallExpr(ptr<Expression> expr) { _ArgList.push_back(std::move(expr)); }
+        inline static ptr<Base> Create() { return std::make_unique<CallExpr>(); }
         inline static ptr<Base> Create(ptr<Base> expr)
         {
             auto exprExpr = dynamic_pointer_cast<Expression>(expr);
             assert(exprExpr);
-            return std::make_unique<ArgList>(std::move(exprExpr));
+            return std::make_unique<CallExpr>(std::move(exprExpr));
         }
-        inline void Add(ptr<Base> expr)
+
+        inline void AddArg(ptr<Base> expr)
         {
             auto exprExpr = dynamic_pointer_cast<Expression>(expr);
             assert(exprExpr);
             _ArgList.push_back(std::move(exprExpr));
         }
 
+        inline void SetFunc(ptr<Base> func)
+        {
+            auto funcExpr = dynamic_pointer_cast<Expression>(func);
+            assert(funcExpr);
+            _Func = std::move(funcExpr);
+        }
+
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
+            os << hint << "Function: " << '\n';
+            _Func->Show(os, hint + '\t');
             if (_ArgList.empty())
                 os << hint << "No Arguments" << '\n';
             else
@@ -178,33 +189,6 @@ namespace ast
                     os << hint << "Argument: " << '\n';
                     expr->Show(os, hint + '\t');
                 }
-        }
-    };
-
-    class CallExpr : public Expression
-    {
-    private:
-        ptr<Expression> _Func;
-        ptr<ArgList> _ArgList;
-
-    public:
-        inline explicit CallExpr(ptr<Expression> func, ptr<ArgList> argList)
-            : _Func(std::move(func)), _ArgList(std::move(argList)) {}
-        inline static ptr<Base> Create(ptr<Base> func, ptr<Base> argList)
-        {
-            auto funcExpr = dynamic_pointer_cast<Expression>(func);
-            assert(funcExpr);
-            auto args = dynamic_pointer_cast<ArgList>(argList);
-            assert(args);
-            return std::make_unique<CallExpr>(std::move(funcExpr), std::move(args));
-        }
-
-        inline virtual void Show(std::ostream &os, const std::string &hint) const override
-        {
-            os << hint << "Function: " << '\n';
-            _Func->Show(os, hint + '\t');
-            os << hint << "Arguments: " << '\n';
-            _ArgList->Show(os, hint + '\t');
         }
     };
 
@@ -348,5 +332,144 @@ namespace ast
                 }
         }
     };
+
+    class TypePrimitive : public Base
+    {
+    };
+
+    class BasicType : public TypePrimitive
+    {
+    public:
+        enum TypeEnum
+        {
+            VOID,
+            INT
+        };
+
+    private:
+        TypeEnum _Type;
+
+    public:
+        inline explicit BasicType(TypeEnum type) : _Type(type) {}
+        inline static ptr<Base> Create(TypeEnum type)
+        {
+            return std::make_unique<BasicType>(type);
+        }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            constexpr const char *ENUM_NAMES[] = {"VOID", "INT"};
+            os << hint << "Basic type: " << ENUM_NAMES[_Type] << '\n';
+        }
+    };
+
+    class CustomType : public TypePrimitive
+    {
+    private:
+        std::string _ID;
+
+    public:
+        inline explicit CustomType(const std::string &id) : _ID(id) {}
+        inline static ptr<Base> Create(const std::string &id)
+        {
+            return std::make_unique<CustomType>(id);
+        }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            os << hint << "Custom type: " << _ID << '\n';
+        }
+    };
+
+    class VarDecl : public Base
+    {
+    private:
+        std::string _Name;
+
+    public:
+        inline explicit VarDecl(const std::string &name) : _Name(name) {}
+        inline static ptr<Base> Create(const std::string &name)
+        {
+            return std::make_unique<VarDecl>(name);
+        }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            os << hint << "Name: " << _Name << '\n';
+        }
+    };
+
+    class ArrayDecl : public VarDecl
+    {
+    private:
+        ptr<VarDecl> _ElementType;
+        std::optional<unsigned int> _Size;
+
+    public:
+        inline explicit ArrayDecl(const std::string &name, ptr<VarDecl> elementType,
+                                  std::optional<unsigned int> size = std::nullopt)
+            : VarDecl(name), _ElementType(std::move(elementType)), _Size(size) {}
+        inline static ptr<Base> Create(const std::string &name, ptr<Base> elementType,
+                                       std::optional<unsigned int> size = std::nullopt)
+        {
+            auto type = dynamic_pointer_cast<VarDecl>(elementType);
+            assert(type);
+            return std::make_unique<ArrayDecl>(name, std::move(type), size);
+        }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            os << hint << "Array: ";
+            if (_Size)
+                os << "(Size = " << *_Size << ')';
+            os << '\n';
+            _ElementType->Show(os, hint + '\t');
+        }
+    };
+
+    class PointerDecl : public VarDecl
+    {
+    private:
+        ptr<VarDecl> _ElementType;
+
+    public:
+        inline explicit PointerDecl(const std::string &name, ptr<VarDecl> elementType)
+            : VarDecl(name), _ElementType(std::move(elementType)) {}
+        inline static ptr<Base> Create(const std::string &name, ptr<Base> elementType)
+        {
+            auto type = dynamic_pointer_cast<VarDecl>(elementType);
+            assert(type);
+            return std::make_unique<PointerDecl>(name, std::move(type));
+        }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            os << hint << "Pointer: ";
+            _ElementType->Show(os, hint + '\t');
+        }
+    };
+
+    // class DeclStmt : public Statement
+    // {
+    // private:
+    //     ptr<TypePrimitive> _Primitive;
+    //     arr<ptr<TypeDecoration>> _DecorationList;
+
+    // public:
+    //     inline explicit DeclStmt(ptr<TypePrimitive> primitive, ptr<TypeDecoration> decoration)
+    //         : _Primitive(std::move(primitive)) { _DecorationList.push_back(std::move(decoration)); }
+    //     inline static ptr<Base> Create(ptr<Base> elementType)
+    //     {
+    //         auto type = dynamic_pointer_cast<TypeDecoration>(elementType);
+    //         assert(type);
+    //         return std::make_unique<PointerType>(type);
+    //     }
+
+    //     inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+    //     {
+    //         os << hint << "Pointer: ";
+    //         _ElementType->Show(os, hint + '\t');
+    //     }
+    // };
 
 } // namespace ast

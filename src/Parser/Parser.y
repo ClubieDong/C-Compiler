@@ -5,7 +5,13 @@
 
 %stype std::unique_ptr<ast::Base>
 
-%token VOID INT RETURN IF ELSE WHILE ID NUM
+%token VOID INT
+%token RETURN IF ELSE WHILE
+%token NUM
+%token ID VARID FUNCID TYPEID NEWID
+
+%token PTR
+%token ARR
 
 %left ','
 %right '='
@@ -22,8 +28,8 @@ Program:
 ;
 
 Expression:
-  NUM                            { $$ = ast::Constant::Create(std::stod(scanner.matched()));                             }
-| ID                             { $$ = ast::Variable::Create(scanner.matched());                                        }
+  NUM                            { $$ = ast::Constant::Create(std::stod(_Scanner->matched()));                             }
+| VARID                          { $$ = ast::Variable::Create(_Scanner->matched());                                        }
 | Expression '=' Expression      { $$ = ast::BiOpExpr::Create(std::move($1), std::move($3), ast::BiOpExpr::ASSIGN);        }
 | Expression '<' Expression      { $$ = ast::BiOpExpr::Create(std::move($1), std::move($3), ast::BiOpExpr::LESS);          }
 | Expression '>' Expression      { $$ = ast::BiOpExpr::Create(std::move($1), std::move($3), ast::BiOpExpr::GREATER);       }
@@ -36,7 +42,7 @@ Expression:
 | Expression '*' Expression      { $$ = ast::BiOpExpr::Create(std::move($1), std::move($3), ast::BiOpExpr::MUL);           }
 | Expression '/' Expression      { $$ = ast::BiOpExpr::Create(std::move($1), std::move($3), ast::BiOpExpr::DIV);           }
 | '-' Expression %prec NEG       { $$ = ast::UnOpExpr::Create(std::move($2), ast::UnOpExpr::NEG);                          }
-| Expression '(' OptArgList ')'  { $$ = ast::CallExpr::Create(std::move($1), std::move($3));                               }
+| Expression '(' OptArgList ')'  { $$ = std::move($3); dynamic_cast<ast::CallExpr*>($$.get())->SetFunc(std::move($1));                               }
 | '(' Expression ')'             { $$ = std::move($2);                                                                     }
 ;
 
@@ -48,7 +54,10 @@ Statement:
 | WHILE '(' Expression ')' Statement              { $$ = ast::WhileStmt::Create(std::move($3), std::move($5));             }
 | RETURN ';'                                      { $$ = ast::ReturnStmt::Create();                                        }
 | RETURN Expression ';'                           { $$ = ast::ReturnStmt::Create(std::move($2));                           }
-| '{' StatementList '}'                           { $$ = std::move($2);                                                    }
+| '{'                                             { _CurrentSyms = _CurrentSyms->AddChild();                               }
+  StatementList
+  '}'                                             { _CurrentSyms = _CurrentSyms->GetParent(); $$ = std::move($3);          }
+| 
 ;
 
 StatementList:
@@ -57,11 +66,29 @@ StatementList:
 ;
 
 OptArgList:
-  /* empty */  { $$ = ast::ArgList::Create(); }
+  /* empty */  { $$ = ast::CallExpr::Create(); }
 | ArgList      { $$ = std::move($1);          }
 ;
 
 ArgList:
-  Expression              { $$ = ast::ArgList::Create(std::move($1));                                      }
-| ArgList ',' Expression  { $$ = std::move($1); dynamic_cast<ast::ArgList*>($$.get())->Add(std::move($3)); }
+  Expression              { $$ = ast::CallExpr::Create(std::move($1));                                      }
+| ArgList ',' Expression  { $$ = std::move($1); dynamic_cast<ast::CallExpr*>($$.get())->AddArg(std::move($3)); }
 ;
+
+VarDecl:
+  NEWID                                 {  }
+| '(' DeclVar ')'
+| DeclVar '[' Expression ']' %prec ARR
+| '*' DeclVar %prec PTR
+;
+
+InitVarDecl:
+  VarDecl
+| VarDecl '=' Expression  
+;
+
+PrimitiveType:
+  INT
+| VOID
+| TYPEID
+;  

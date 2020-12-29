@@ -3,7 +3,8 @@
 
 int main()
 {
-    Parser p;
+    Scanner s;
+    Parser p(s);
     p.parse();
     return 0;
 }

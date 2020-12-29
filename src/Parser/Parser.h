@@ -15,12 +15,17 @@
 // If you need to include additional headers in this file
 // you should do so after these comment-lines.
 
+#include "../SymbolTable.hpp"
+
 class Parser : public ParserBase
 {
-    Scanner scanner;
+private:
+    Scanner *_Scanner;
+    sym::SymbolTable _Syms;
+    sym::SymbolTable *_CurrentSyms = &_Syms;
 
 public:
-    Parser() = default;
+    Parser(Scanner &scanner) : _Scanner(&scanner) {}
     int parse();
 
 private:
