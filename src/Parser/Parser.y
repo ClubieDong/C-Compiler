@@ -6,9 +6,9 @@
 %stype std::unique_ptr<ast::Base>
 
 %token VOID INT
-%token RETURN IF ELSE WHILE
+%token RETURN IF ELSE WHILE STRUCT
 %token NUM
-%token ID VARID FUNCID TYPEID NEWID
+%token ID
 
 %token PTR
 %token ARR
@@ -29,7 +29,7 @@ Program:
 
 Expression:
   NUM                            { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()));       }
-| VARID                          { $$ = std::make_unique<ast::Variable>(_Scanner->matched());                  }
+| ID                             { $$ = std::make_unique<ast::Variable>(_Scanner->matched());                  }
 | Expression '=' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ASSIGN);        }
 | Expression '<' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS);          }
 | Expression '>' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER);       }
@@ -47,15 +47,15 @@ Expression:
 ;
 
 Statement:
-  ';'                                             { $$ = std::make_unique<ast::ExprStmt>();                       }
-| Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);                     }
-| IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);                   }
-| IF '(' Expression ')' Statement ELSE Statement  { $$ = std::make_unique<ast::IfStmt>($3, $5, $7);               }
-| WHILE '(' Expression ')' Statement              { $$ = std::make_unique<ast::WhileStmt>($3, $5);                }
-| RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>();                     }
-| RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2);                   }
-| '{'                                             { _CurrentSyms = _CurrentSyms->AddChild();                      }
-  StatementList '}'                               { _CurrentSyms = _CurrentSyms->GetParent(); $$ = std::move($3); }
+  ';'                                             { $$ = std::make_unique<ast::ExprStmt>();                           }
+| Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);                         }
+| IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);                       }
+| IF '(' Expression ')' Statement ELSE Statement  { $$ = std::make_unique<ast::IfStmt>($3, $5, $7);                   }
+| WHILE '(' Expression ')' Statement              { $$ = std::make_unique<ast::WhileStmt>($3, $5);                    }
+| RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>();                         }
+| RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2);                       }
+| '{' StatementList '}'                           { $$ = std::move($3);                                               }
+| PrimitiveType VarDeclList ';'                   { $$ = std::move($2); ast::cast<ast::VarDeclStmt>($$)->SetType($1); }
 ;
 
 StatementList:
@@ -74,19 +74,37 @@ ArgList:
 ;
 
 VarDecl:
-  NEWID                                 
-| '(' DeclVar ')'
-| DeclVar '[' Expression ']' %prec ARR
-| '*' DeclVar %prec PTR
+  ID                                    { $$ = std::make_unique<ast::PlainVarDecl>(_Scanner->matched()); }
+| VarDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayVarDecl>($1);                  }
+| VarDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayVarDecl>($1, $3);              }
+| '*' VarDecl %prec PTR                 { $$ = std::make_unique<ast::PointerVarDecl>($2);                }
+| '(' VarDecl ')'                       { $$ = std::move($2);                                            }
 ;
 
 InitVarDecl:
-  VarDecl
-| VarDecl '=' Expression  
+  VarDecl                 { $$ = std::make_unique<ast::InitVarDecl>($1);     }
+| VarDecl '=' Expression  { $$ = std::make_unique<ast::InitVarDecl>($1, $3); }
 ;
 
 PrimitiveType:
-  INT
-| VOID
-| TYPEID
+  VOID       { $$ = std::make_unique<ast::BasicType>(ast::BasicType::VOID); }
+| INT        { $$ = std::make_unique<ast::BasicType>(ast::BasicType::INT);  }
+| STRUCT ID  { $$ = std::make_unique<ast::CustomType>(_Scanner->matched()); }
 ;
+
+VarDeclList:
+  InitVarDecl                  { $$ = std::make_unique<ast::VarDeclStmt>($1);                     }
+| VarDeclList ',' InitVarDecl  { $$ = std::move($1); ast::cast<ast::VarDeclStmt>($$)->AddVar($3); }
+;
+
+OptParamList:
+  /* empty */
+| VOID
+| ParamList
+;
+
+ParamList:
+  PrimitiveType VarDecl
+| ParamList ',' PrimitiveType VarDecl
+;
+

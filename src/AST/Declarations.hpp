@@ -23,7 +23,7 @@ namespace ast
     public:
         inline explicit BasicType(Type type) : _Type(type) {}
 
-        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
             constexpr const char *ENUM_NAMES[] = {"VOID", "INT"};
             os << hint << "BasicType: " << ENUM_NAMES[_Type] << '\n';
@@ -38,7 +38,7 @@ namespace ast
     public:
         inline explicit CustomType(const std::string &id) : _ID(id) {}
 
-        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
             os << hint << "CustomType: " << _ID << '\n';
         }
@@ -46,76 +46,110 @@ namespace ast
 
     class VarDecl : public Base
     {
+    };
+
+    class PlainVarDecl : public VarDecl
+    {
     private:
         std::string _Name;
 
     public:
-        inline explicit VarDecl(const std::string &name) : _Name(name) {}
+        inline explicit PlainVarDecl(const std::string &name) : _Name(name) {}
 
-        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "VarDecl: " << _Name << '\n';
+            os << hint << "PlainVarDecl: " << _Name << '\n';
         }
     };
 
-    class ArrayDecl : public VarDecl
+    class ArrayVarDecl : public VarDecl
     {
     private:
         ptr<VarDecl> _Type;
-        std::optional<size_t> _Size;
+        ptr<Expression> _Size;
 
     public:
-        inline explicit ArrayDecl(const std::string &name, ptr<Base> &type,
-                                  std::optional<size_t> size = std::nullopt)
-            : VarDecl(name), _Type(to<VarDecl>(type)), _Size(size) {}
+        inline explicit ArrayVarDecl(ptr<Base> &type)
+            : _Type(to<VarDecl>(type)) {}
+        inline explicit ArrayVarDecl(ptr<Base> &type, ptr<Base> &size)
+            : _Type(to<VarDecl>(type)), _Size(to<Expression>(size)) {}
 
-        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "ArrayDecl: ";
+            os << hint << "ArrayDecl: \n";
             if (_Size)
-                os << "(Size = " << *_Size << ')';
-            os << '\n';
-            _Type->Show(os, hint + '\t');
+            {
+                os << hint << "\tSize: \n";
+                _Size->Show(os, hint + "\t\t");
+            }
+            os << hint << "\tType: \n";
+            _Type->Show(os, hint + "\t\t");
         }
     };
 
-    class PointerDecl : public VarDecl
+    class PointerVarDecl : public VarDecl
     {
     private:
         ptr<VarDecl> _Type;
 
     public:
-        inline explicit PointerDecl(const std::string &name, ptr<Base> &type)
-            : VarDecl(name), _Type(to<VarDecl>(type)) {}
+        inline explicit PointerVarDecl(ptr<Base> &type) : _Type(to<VarDecl>(type)) {}
 
-        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
             os << hint << "Pointer: \n";
             _Type->Show(os, hint + '\t');
         }
     };
 
-    // class DeclStmt : public Statement
-    // {
-    // private:
-    //     ptr<TypePrimitive> _Primitive;
-    //     arr<ptr<TypeDecoration>> _DecorationList;
+    class InitVarDecl : public Base
+    {
+    private:
+        ptr<VarDecl> _Var;
+        ptr<Expression> _Init;
 
-    // public:
-    //     inline explicit DeclStmt(ptr<TypePrimitive> primitive, ptr<TypeDecoration> decoration)
-    //         : _Primitive(std::move(primitive)) { _DecorationList.push_back(std::move(decoration)); }
-    //     inline static ptr<Base> Create(ptr<Base> elementType)
-    //     {
-    //         auto type = dynamic_pointer_cast<TypeDecoration>(elementType);
-    //         assert(type);
-    //         return std::make_unique<PointerType>(type);
-    //     }
+    public:
+        inline explicit InitVarDecl(ptr<Base> &var)
+            : _Var(to<VarDecl>(var)) {}
+        inline explicit InitVarDecl(ptr<Base> &var, ptr<Base> &init)
+            : _Var(to<VarDecl>(var)), _Init(to<Expression>(init)) {}
 
-    //     inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
-    //     {
-    //         os << hint << "Pointer: ";
-    //         _ElementType->Show(os, hint + '\t');
-    //     }
-    // };
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
+        {
+            os << hint << "InitVarDecl: \n";
+            os << hint << "\tVar: \n";
+            _Var->Show(os, hint + "\t\t");
+            if (_Init)
+            {
+                os << hint << "\tInit: \n";
+                _Init->Show(os, hint + "\t\t");
+            }
+        }
+    };
+
+    class VarDeclStmt : public Statement
+    {
+    private:
+        ptr<TypePrimitive> _Type;
+        arr<ptr<InitVarDecl>> _VarList;
+
+    public:
+        inline explicit VarDeclStmt(ptr<Base> &var) { _VarList.push_back(to<InitVarDecl>(var)); }
+
+        inline void AddVar(ptr<Base> &var) { _VarList.push_back(to<InitVarDecl>(var)); }
+        inline void SetType(ptr<Base> &type) { _Type = to<TypePrimitive>(type); }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            os << hint << "VarDeclStmt: \n";
+            os << hint << "\tType: \n";
+            _Type->Show(os, hint + "\t\t");
+            for (const auto &var : _VarList)
+            {
+                os << hint << "\tVar: \n";
+                var->Show(os, hint + "\t\t");
+            }
+        }
+    };
 
 } // namespace ast

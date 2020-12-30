@@ -119,10 +119,10 @@ namespace ast
             if (_ArgList.empty())
                 os << hint << "\tNo Arguments\n";
             else
-                for (const auto &expr : _ArgList)
+                for (const auto &arg : _ArgList)
                 {
                     os << hint << "\tArgument: \n";
-                    expr->Show(os, hint + "\t\t");
+                    arg->Show(os, hint + "\t\t");
                 }
         }
     };

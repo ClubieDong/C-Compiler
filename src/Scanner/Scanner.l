@@ -14,6 +14,7 @@ return                     return Parser::RETURN;
 if                         return Parser::IF;
 else                       return Parser::ELSE;
 while                      return Parser::WHILE;
+struct                     return Parser::STRUCT;
 
 [[:alpha:]_][[:alnum:]_]*  return Parser::ID;
 [0-9]+                     return Parser::NUM;

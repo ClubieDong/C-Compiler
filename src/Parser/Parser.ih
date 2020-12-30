@@ -5,7 +5,6 @@
 // $insert class.h
 #include "Parser.h"
 #include "../AST/AST.hpp"
-#include "../SymbolTable.hpp"
 #include <memory>
 
 inline void Parser::error()
@@ -16,10 +15,7 @@ inline void Parser::error()
 // $insert lex
 inline int Parser::lex()
 {
-    auto tok = _Scanner->lex();
-    if (tok == ID)
-        return VARID;
-    return tok;
+    return _Scanner->lex();
 }
 
 inline void Parser::print()
