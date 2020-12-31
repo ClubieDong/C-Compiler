@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Base.hpp"
+#include "Expressions.hpp"
+#include "Statements.hpp"
 
 namespace ast
 {
@@ -33,46 +35,83 @@ namespace ast
     class CustomType : public TypePrimitive
     {
     private:
-        std::string _ID;
+        ptr<ID> _Name;
 
     public:
-        inline explicit CustomType(const std::string &id) : _ID(id) {}
+        inline explicit CustomType(ptr<Base> &name) : _Name(to<ID>(name)) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "CustomType: " << _ID << '\n';
+            os << hint << "CustomType: \n";
+            _Name->Show(os, hint + '\t');
         }
     };
 
-    class VarDecl : public Base
+    class Decl : public Base
     {
     };
 
-    class PlainVarDecl : public VarDecl
+    class VarDecl : public Decl
     {
     private:
-        std::string _Name;
+        ptr<ID> _Name;
 
     public:
-        inline explicit PlainVarDecl(const std::string &name) : _Name(name) {}
+        inline explicit VarDecl(ptr<Base> &name) : _Name(to<ID>(name)) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "PlainVarDecl: " << _Name << '\n';
+            os << hint << "VarDecl: \n";
+            _Name->Show(os, hint + '\t');
         }
     };
 
-    class ArrayVarDecl : public VarDecl
+    class FuncDecl : public Decl
     {
     private:
-        ptr<VarDecl> _Type;
+        struct Param
+        {
+            ptr<TypePrimitive> _Type;
+            ptr<Decl> _Decl;
+            inline explicit Param(ptr<Base> &type, ptr<Base> &decl)
+                : _Type(to<TypePrimitive>(type)), _Decl(to<Decl>(decl)) {}
+        };
+
+        ptr<ID> _Name;
+        arr<Param> _ParamList;
+
+    public:
+        inline explicit FuncDecl() = default;
+        inline explicit FuncDecl(ptr<Base> &type, ptr<Base> &decl) { _ParamList.emplace_back(type, decl); }
+
+        inline void AddParam(ptr<Base> &type, ptr<Base> &decl) { _ParamList.emplace_back(type, decl); }
+        inline void SetName(ptr<Base> &name) { _Name = to<ID>(name); }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
+        {
+            os << hint << "FuncDecl: \n";
+            _Name->Show(os, hint + '\t');
+            for (const auto &param : _ParamList)
+            {
+                os << hint << "\tParam: \n";
+                os << hint << "\t\tType: \n";
+                param._Type->Show(os, hint + "\t\t\t");
+                os << hint << "\t\tDecl: \n";
+                param._Decl->Show(os, hint + "\t\t\t");
+            }
+        }
+    };
+
+    class ArrayDecl : public Decl
+    {
+    private:
+        ptr<Decl> _Type;
         ptr<Expression> _Size;
 
     public:
-        inline explicit ArrayVarDecl(ptr<Base> &type)
-            : _Type(to<VarDecl>(type)) {}
-        inline explicit ArrayVarDecl(ptr<Base> &type, ptr<Base> &size)
-            : _Type(to<VarDecl>(type)), _Size(to<Expression>(size)) {}
+        inline explicit ArrayDecl(ptr<Base> &type) : _Type(to<Decl>(type)) {}
+        inline explicit ArrayDecl(ptr<Base> &type, ptr<Base> &size)
+            : _Type(to<Decl>(type)), _Size(to<Expression>(size)) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
@@ -87,13 +126,13 @@ namespace ast
         }
     };
 
-    class PointerVarDecl : public VarDecl
+    class PointerDecl : public Decl
     {
     private:
-        ptr<VarDecl> _Type;
+        ptr<Decl> _Type;
 
     public:
-        inline explicit PointerVarDecl(ptr<Base> &type) : _Type(to<VarDecl>(type)) {}
+        inline explicit PointerDecl(ptr<Base> &type) : _Type(to<Decl>(type)) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
@@ -102,21 +141,20 @@ namespace ast
         }
     };
 
-    class InitVarDecl : public Base
+    class InitDecl : public Base
     {
     private:
-        ptr<VarDecl> _Var;
+        ptr<Decl> _Var;
         ptr<Expression> _Init;
 
     public:
-        inline explicit InitVarDecl(ptr<Base> &var)
-            : _Var(to<VarDecl>(var)) {}
-        inline explicit InitVarDecl(ptr<Base> &var, ptr<Base> &init)
-            : _Var(to<VarDecl>(var)), _Init(to<Expression>(init)) {}
+        inline explicit InitDecl(ptr<Base> &var) : _Var(to<Decl>(var)) {}
+        inline explicit InitDecl(ptr<Base> &var, ptr<Base> &init)
+            : _Var(to<Decl>(var)), _Init(to<Expression>(init)) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "InitVarDecl: \n";
+            os << hint << "InitDecl: \n";
             os << hint << "\tVar: \n";
             _Var->Show(os, hint + "\t\t");
             if (_Init)
@@ -127,21 +165,25 @@ namespace ast
         }
     };
 
-    class VarDeclStmt : public Statement
+    class Declaration : public Statement
+    {
+    };
+
+    class VarDeclaration : public Declaration
     {
     private:
         ptr<TypePrimitive> _Type;
-        arr<ptr<InitVarDecl>> _VarList;
+        arr<ptr<InitDecl>> _VarList;
 
     public:
-        inline explicit VarDeclStmt(ptr<Base> &var) { _VarList.push_back(to<InitVarDecl>(var)); }
+        inline explicit VarDeclaration(ptr<Base> &var) { _VarList.push_back(to<InitDecl>(var)); }
 
-        inline void AddVar(ptr<Base> &var) { _VarList.push_back(to<InitVarDecl>(var)); }
+        inline void AddVar(ptr<Base> &var) { _VarList.push_back(to<InitDecl>(var)); }
         inline void SetType(ptr<Base> &type) { _Type = to<TypePrimitive>(type); }
 
         inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
         {
-            os << hint << "VarDeclStmt: \n";
+            os << hint << "VarDeclaration: \n";
             os << hint << "\tType: \n";
             _Type->Show(os, hint + "\t\t");
             for (const auto &var : _VarList)
@@ -152,4 +194,46 @@ namespace ast
         }
     };
 
+    class FuncDeclaration : public Declaration
+    {
+    private:
+        ptr<TypePrimitive> _Type;
+        ptr<Decl> _FuncDecl;
+        ptr<StatementList> _Body;
+
+    public:
+        inline explicit FuncDeclaration(ptr<Base> &type, ptr<Base> &funcDecl, ptr<Base> &body)
+            : _Type(to<TypePrimitive>(type)), _FuncDecl(to<Decl>(funcDecl)), _Body(to<StatementList>(body)) {}
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            os << hint << "FuncDeclaration: \n";
+            os << hint << "\tType: \n";
+            _Type->Show(os, hint + "\t\t");
+            os << hint << "\tFuncDecl: \n";
+            _FuncDecl->Show(os, hint + "\t\t");
+            os << hint << "\tBody: \n";
+            _Body->Show(os, hint + "\t\t");
+        }
+    };
+
+    class DeclarationList : public Base
+    {
+    private:
+        arr<ptr<Declaration>> _DeclList;
+
+    public:
+        inline explicit DeclarationList(ptr<Base> &decl) { _DeclList.push_back(to<Declaration>(decl)); }
+
+        inline void AddDecl(ptr<Base> &decl) { _DeclList.push_back(to<Declaration>(decl)); }
+
+        inline virtual void Show(std::ostream &os, const std::string &hint = "") const override
+        {
+            for (const auto &decl : _DeclList)
+            {
+                os << hint << "Declaration: \n";
+                decl->Show(os, hint + '\t');
+            }
+        }
+    };
 } // namespace ast

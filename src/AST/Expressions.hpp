@@ -25,14 +25,15 @@ namespace ast
     class Variable : public Expression
     {
     private:
-        std::string _ID;
+        ptr<ID> _Name;
 
     public:
-        inline explicit Variable(const std::string &id) : _ID(id) {}
+        inline explicit Variable(ptr<Base>& name) : _Name(to<ID>(name)) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "Variable: " << _ID << '\n';
+            os << hint << "Variable: \n";
+            _Name->Show(os, hint + '\t');
         }
     };
 

@@ -8,54 +8,55 @@
 %token VOID INT
 %token RETURN IF ELSE WHILE STRUCT
 %token NUM
-%token ID
-
-%token PTR
-%token ARR
+%token ID_TEXT
 
 %left ','
 %right '='
 %left '<' '>' LE GE EQ NE
 %left '+' '-'
 %left '*' '/'
-%right NEG
-%token '(' ')'
+%right NEG PTR
+%left CALL ARR
 
 %%
 
 Program:
-  StatementList  { $1->Show(); }
+  DeclarationList  { $1->Show(); }
+;
+
+ID:
+  ID_TEXT  { $$ = std::make_unique<ast::ID>(_Scanner->matched()); }
 ;
 
 Expression:
-  NUM                            { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()));       }
-| ID                             { $$ = std::make_unique<ast::Variable>(_Scanner->matched());                  }
-| Expression '=' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ASSIGN);        }
-| Expression '<' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS);          }
-| Expression '>' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER);       }
-| Expression LE Expression       { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS_EQUAL);    }
-| Expression GE Expression       { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER_EQUAL); }
-| Expression EQ Expression       { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::EQUAL);         }
-| Expression NE Expression       { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::NOT_EQUAL);     }
-| Expression '+' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ADD);           }
-| Expression '-' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB);           }
-| Expression '*' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL);           }
-| Expression '/' Expression      { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV);           }
-| '-' Expression %prec NEG       { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NEG);               }
-| Expression '(' OptArgList ')'  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1);              }
-| '(' Expression ')'             { $$ = std::move($2);                                                         }
+  NUM                                       { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()));       }
+| ID                                        { $$ = std::make_unique<ast::Variable>($1);                  }
+| Expression '=' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ASSIGN);        }
+| Expression '<' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS);          }
+| Expression '>' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER);       }
+| Expression LE Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS_EQUAL);    }
+| Expression GE Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER_EQUAL); }
+| Expression EQ Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::EQUAL);         }
+| Expression NE Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::NOT_EQUAL);     }
+| Expression '+' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ADD);           }
+| Expression '-' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB);           }
+| Expression '*' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL);           }
+| Expression '/' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV);           }
+| '-' Expression %prec NEG                  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NEG);               }
+| Expression '(' OptArgList ')' %prec CALL  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1);              }
+| '(' Expression ')'                        { $$ = std::move($2);                                                         }
 ;
 
 Statement:
-  ';'                                             { $$ = std::make_unique<ast::ExprStmt>();                           }
-| Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);                         }
-| IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);                       }
-| IF '(' Expression ')' Statement ELSE Statement  { $$ = std::make_unique<ast::IfStmt>($3, $5, $7);                   }
-| WHILE '(' Expression ')' Statement              { $$ = std::make_unique<ast::WhileStmt>($3, $5);                    }
-| RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>();                         }
-| RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2);                       }
-| '{' StatementList '}'                           { $$ = std::move($3);                                               }
-| PrimitiveType VarDeclList ';'                   { $$ = std::move($2); ast::cast<ast::VarDeclStmt>($$)->SetType($1); }
+  ';'                                             { $$ = std::make_unique<ast::ExprStmt>();         }
+| Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);       }
+| Declaration                                     { $$ = std::move($1);                             }
+| IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);     }
+| IF '(' Expression ')' Statement ELSE Statement  { $$ = std::make_unique<ast::IfStmt>($3, $5, $7); }
+| WHILE '(' Expression ')' Statement              { $$ = std::make_unique<ast::WhileStmt>($3, $5);  }
+| RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>();       }
+| RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2);     }
+| '{' StatementList '}'                           { $$ = std::move($2);                             }
 ;
 
 StatementList:
@@ -74,37 +75,59 @@ ArgList:
 ;
 
 VarDecl:
-  ID                                    { $$ = std::make_unique<ast::PlainVarDecl>(_Scanner->matched()); }
-| VarDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayVarDecl>($1);                  }
-| VarDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayVarDecl>($1, $3);              }
-| '*' VarDecl %prec PTR                 { $$ = std::make_unique<ast::PointerVarDecl>($2);                }
-| '(' VarDecl ')'                       { $$ = std::move($2);                                            }
+  ID                                    { $$ = std::make_unique<ast::VarDecl>($1);       }
+| VarDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayDecl>($1);     }
+| VarDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3); }
+| '*' VarDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);   }
+| '(' VarDecl ')'                       { $$ = std::move($2);                            }
 ;
 
-InitVarDecl:
-  VarDecl                 { $$ = std::make_unique<ast::InitVarDecl>($1);     }
-| VarDecl '=' Expression  { $$ = std::make_unique<ast::InitVarDecl>($1, $3); }
+FuncDecl:
+  ID '(' OptParamList ')'                { $$ = std::move($3); ast::cast<ast::FuncDecl>($$)->SetName($1); }
+| FuncDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayDecl>($1);                     }
+| FuncDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3);                 }
+| '*' FuncDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);                   }
+| '(' FuncDecl ')'                       { $$ = std::move($2);                                            }
 ;
 
-PrimitiveType:
+Decl:
+  VarDecl   { $$ = std::move($1); }
+| FuncDecl  { $$ = std::move($1); }
+;
+
+InitDecl:
+  Decl                 { $$ = std::make_unique<ast::InitDecl>($1);     }
+| Decl '=' Expression  { $$ = std::make_unique<ast::InitDecl>($1, $3); }
+;
+
+TypePrimitive:
   VOID       { $$ = std::make_unique<ast::BasicType>(ast::BasicType::VOID); }
 | INT        { $$ = std::make_unique<ast::BasicType>(ast::BasicType::INT);  }
-| STRUCT ID  { $$ = std::make_unique<ast::CustomType>(_Scanner->matched()); }
+| STRUCT ID  { $$ = std::make_unique<ast::CustomType>($2);                  }
 ;
 
-VarDeclList:
-  InitVarDecl                  { $$ = std::make_unique<ast::VarDeclStmt>($1);                     }
-| VarDeclList ',' InitVarDecl  { $$ = std::move($1); ast::cast<ast::VarDeclStmt>($$)->AddVar($3); }
+DeclList:
+  InitDecl               { $$ = std::make_unique<ast::VarDeclaration>($1);                     }
+| DeclList ',' InitDecl  { $$ = std::move($1); ast::cast<ast::VarDeclaration>($$)->AddVar($3); }
 ;
 
 OptParamList:
-  /* empty */
-| VOID
-| ParamList
+  /* empty */  { $$ = std::make_unique<ast::FuncDecl>(); }
+| VOID         { $$ = std::make_unique<ast::FuncDecl>(); }
+| ParamList    { $$ = std::move($1);                     }
 ;
 
 ParamList:
-  PrimitiveType VarDecl
-| ParamList ',' PrimitiveType VarDecl
+  TypePrimitive Decl                { $$ = std::make_unique<ast::FuncDecl>($1, $2);                       }
+| ParamList ',' TypePrimitive Decl  { $$ = std::move($1); ast::cast<ast::FuncDecl>($$)->AddParam($3, $4); }
 ;
 
+Declaration:
+  TypePrimitive DeclList ';'                    { $$ = std::move($2); ast::cast<ast::VarDeclaration>($$)->SetType($1); }
+| TypePrimitive FuncDecl '{' StatementList '}'  { $$ = std::make_unique<ast::FuncDeclaration>($1, $2, $4);             }
+;
+
+DeclarationList:
+  Declaration                  { $$ = std::make_unique<ast::DeclarationList>($1);                      }
+| DeclarationList Declaration  { $$ = std::move($1); ast::cast<ast::DeclarationList>($$)->AddDecl($2); }
+;

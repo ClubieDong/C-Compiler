@@ -85,9 +85,13 @@ namespace ast
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "ReturnStmt\n";
             if (_Expr)
+            {
+                os << hint << "ReturnStmt: \n";
                 _Expr->Show(os, hint + '\t');
+            }
+            else
+                os << hint << "ReturnStmt\n";
         }
     };
 

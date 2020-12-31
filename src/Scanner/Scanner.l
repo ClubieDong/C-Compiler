@@ -16,7 +16,7 @@ else                       return Parser::ELSE;
 while                      return Parser::WHILE;
 struct                     return Parser::STRUCT;
 
-[[:alpha:]_][[:alnum:]_]*  return Parser::ID;
+[[:alpha:]_][[:alnum:]_]*  return Parser::ID_TEXT;
 [0-9]+                     return Parser::NUM;
 
 [ \t\n]                    // 跳过空白符

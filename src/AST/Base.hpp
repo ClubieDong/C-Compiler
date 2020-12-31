@@ -23,6 +23,20 @@ namespace ast
         inline virtual void Show(std::ostream &os = std::cout, const std::string &hint = "") const = 0;
     };
 
+    class ID : public Base
+    {
+    private:
+        std::string _ID;
+
+    public:
+        inline explicit ID(const std::string &id) : _ID(id) {}
+
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
+        {
+            os << hint << "ID: " << _ID << '\n';
+        }
+    };
+
     template <typename Derived>
     inline ptr<Derived> to(ptr<Base> &base)
     {
