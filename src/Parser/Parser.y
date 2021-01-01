@@ -1,4 +1,3 @@
-%scanner ../Scanner/Scanner.h
 %baseclass-preinclude includes.h
 %default-actions off
 %no-lines
@@ -10,13 +9,13 @@
 %token NUM
 %token ID_TEXT
 
-%left ','
+%right PTR
+%left ARR
+
 %right '='
 %left '<' '>' LE GE EQ NE
 %left '+' '-'
 %left '*' '/'
-%right NEG PTR
-%left CALL ARR
 
 %%
 
@@ -28,23 +27,35 @@ ID:
   ID_TEXT  { $$ = std::make_unique<ast::ID>(_Scanner->matched()); }
 ;
 
+PrimaryExpression:
+  NUM                 { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched())); }
+| ID                  { $$ = std::make_unique<ast::Variable>($1);                             }
+| '(' Expression ')'  { $$ = std::move($2);                                                   }
+;
+
+PostExpression:
+  PrimaryExpression                  { $$ = std::move($1);                                            }
+| PostExpression '(' OptArgList ')'  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1); }
+;
+
+PreExpression:
+  PostExpression     { $$ = std::move($1);                                           }
+| '-' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NEG); }
+;
+
 Expression:
-  NUM                                       { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()));       }
-| ID                                        { $$ = std::make_unique<ast::Variable>($1);                  }
-| Expression '=' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ASSIGN);        }
-| Expression '<' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS);          }
-| Expression '>' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER);       }
-| Expression LE Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS_EQUAL);    }
-| Expression GE Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER_EQUAL); }
-| Expression EQ Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::EQUAL);         }
-| Expression NE Expression                  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::NOT_EQUAL);     }
-| Expression '+' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ADD);           }
-| Expression '-' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB);           }
-| Expression '*' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL);           }
-| Expression '/' Expression                 { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV);           }
-| '-' Expression %prec NEG                  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NEG);               }
-| Expression '(' OptArgList ')' %prec CALL  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1);              }
-| '(' Expression ')'                        { $$ = std::move($2);                                                         }
+  PreExpression              { $$ = std::move($1);                                                         }
+| Expression '=' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ASSIGN);        }
+| Expression '<' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS);          }
+| Expression '>' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER);       }
+| Expression LE Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS_EQUAL);    }
+| Expression GE Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER_EQUAL); }
+| Expression EQ Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::EQUAL);         }
+| Expression NE Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::NOT_EQUAL);     }
+| Expression '+' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ADD);           }
+| Expression '-' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB);           }
+| Expression '*' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL);           }
+| Expression '/' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV);           }
 ;
 
 Statement:
