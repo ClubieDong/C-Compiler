@@ -19,10 +19,13 @@ class Parser : public ParserBase
 {
 private:
     Scanner *_Scanner;
+    std::unique_ptr<ast::Base> _Root;
 
 public:
     Parser(Scanner &scanner) : _Scanner(&scanner) {}
     int parse();
+
+    std::unique_ptr<ast::Base> GetRoot() { return std::move(_Root); }
 
 private:
     void error(); // called on (syntax) errors

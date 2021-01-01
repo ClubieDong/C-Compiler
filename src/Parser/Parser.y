@@ -20,7 +20,7 @@
 %%
 
 Program:
-  DeclarationList  { $1->Show(); }
+  DeclarationList  { _Root = std::move($1); }
 ;
 
 ID:
