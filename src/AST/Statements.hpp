@@ -25,6 +25,13 @@ namespace ast
             else
                 os << hint << "Empty expression statement" << '\n';
         }
+
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            if (_Expr)
+                return _Expr->Analyze(syms);
+            return true;
+        }
     };
 
     class IfStmt : public Statement
@@ -52,6 +59,18 @@ namespace ast
                 _Else->Show(os, hint + "\t\t");
             }
         }
+
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            bool c = _CondExpr->Analyze(syms);
+            bool t = _Then->Analyze(syms);
+            if (_Else)
+            {
+                bool e = _Else->Analyze(syms);
+                return c && t && e;
+            }
+            return c && t;
+        }
     };
 
     class WhileStmt : public Statement
@@ -71,6 +90,13 @@ namespace ast
             _CondExpr->Show(os, hint + "\t\t");
             os << hint << "\tLoop body: \n";
             _Body->Show(os, hint + "\t\t");
+        }
+
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            bool c = _CondExpr->Analyze(syms);
+            bool b = _Body->Analyze(syms);
+            return c && b;
         }
     };
 
@@ -93,6 +119,13 @@ namespace ast
             else
                 os << hint << "ReturnStmt\n";
         }
+
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            if (_Expr)
+                return _Expr->Analyze(syms);
+            return true;
+        }
     };
 
     class StatementList : public Statement
@@ -113,6 +146,16 @@ namespace ast
                 for (const auto &stmt : _StatementList)
                     stmt->Show(os, hint + '\t');
             }
+        }
+
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            auto child = syms->AddChild();
+            bool success = true;
+            for (auto& i : _StatementList)
+                if (!i->Analyze(child))
+                    success = false;
+            return success;
         }
     };
 } // namespace ast

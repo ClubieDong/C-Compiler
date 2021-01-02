@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sstream>
 #include "Base.hpp"
 #include "Expressions.hpp"
 #include "Statements.hpp"
@@ -16,7 +17,8 @@ namespace ast
         enum Type
         {
             VOID,
-            INT
+            INT,
+            BOOL,
         };
 
     private:
@@ -27,7 +29,7 @@ namespace ast
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            constexpr const char *ENUM_NAMES[] = {"VOID", "INT"};
+            constexpr const char *ENUM_NAMES[] = {"VOID", "INT", "BOOL"};
             os << hint << "BasicType: " << ENUM_NAMES[_Type] << '\n';
         }
     };
@@ -60,6 +62,7 @@ namespace ast
         ptr<ID> _Name;
 
     public:
+        inline explicit VarDecl() = default;
         inline explicit VarDecl(ptr<Base> &name) : _Name(to<ID>(name)) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
@@ -107,6 +110,20 @@ namespace ast
             }
         }
 
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            bool success = true;
+            for (auto& [type, decl] : _ParamList)
+                if (!syms->AddSymbol(decl->GetName(), type.get(), decl.get()))
+                {
+                    std::ostringstream ss;
+                    ss << "Redeclaration of '" << decl->GetName() << '\'';
+                    ErrorHandler::PrintError(ss.str(), decl->GetLocation());
+                    success = false;
+                }
+            return success;
+        }
+
         inline virtual std::string GetName() const { return _Name->GetName(); };
         inline virtual const ErrorHandler::Location &GetLocation() const { return _Name->GetLocation(); }
     };
@@ -134,6 +151,11 @@ namespace ast
             _Type->Show(os, hint + "\t\t");
         }
 
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            return _Type->Analyze(syms);
+        }
+
         inline virtual std::string GetName() const { return _Type->GetName(); };
         inline virtual const ErrorHandler::Location &GetLocation() const { return _Type->GetLocation(); }
     };
@@ -150,6 +172,11 @@ namespace ast
         {
             os << hint << "Pointer: \n";
             _Type->Show(os, hint + '\t');
+        }
+
+        inline virtual bool Analyze(SymbolTable *syms)
+        {
+            return _Type->Analyze(syms);
         }
 
         inline virtual std::string GetName() const { return _Type->GetName(); };
@@ -179,13 +206,14 @@ namespace ast
             }
         }
 
-        inline virtual void Analyze(SymbolTable *syms)
+        inline virtual bool Analyze(SymbolTable *syms)
         {
-            if (_Init)
-            {
-                _Init->Analyze(syms);
-                // TODO: Cast
-            }
+            bool success = true;
+            if (!_Var->Analyze(syms))
+                success = false;
+            if (_Init && !_Init->Analyze(syms))
+                success = false;
+            return success;
         }
 
         inline Decl *GetVar() { return _Var.get(); }
@@ -219,16 +247,28 @@ namespace ast
             }
         }
 
-        inline virtual void Analyze(SymbolTable *syms)
+        inline virtual bool Analyze(SymbolTable *syms)
         {
-            _Type->Analyze(syms);
+            bool success = true;
+            if (!_Type->Analyze(syms))
+                success = false;
             for (auto &i : _VarList)
             {
                 auto var = i->GetVar();
-                i->Analyze(syms);
+                if (!i->Analyze(syms))
+                {
+                    success = false;
+                    continue;
+                }
                 if (!syms->AddSymbol(var->GetName(), _Type.get(), var))
-                    ErrorHandler::PrintError("Redeclaration of " + var->GetName(), var->GetLocation());
+                {
+                    std::ostringstream ss;
+                    ss << "Redeclaration of '" << var->GetName() << '\'';
+                    ErrorHandler::PrintError(ss.str(), var->GetLocation());
+                    success = false;
+                }
             }
+            return success;
         }
     };
 
@@ -254,9 +294,22 @@ namespace ast
             _Body->Show(os, hint + "\t\t");
         }
 
-        inline virtual void Analyze(SymbolTable *syms)
+        inline virtual bool Analyze(SymbolTable *syms)
         {
-            syms->AddSymbol(_FuncDecl->GetName(), _Type.get(), _FuncDecl.get());
+            bool success = true;
+            if (!syms->AddSymbol(_FuncDecl->GetName(), _Type.get(), _FuncDecl.get()))
+            {
+                std::ostringstream ss;
+                ss << "Redeclaration of '" << _FuncDecl->GetName() << '\'';
+                ErrorHandler::PrintError(ss.str(), _FuncDecl->GetLocation());
+                success = false;
+            }
+            auto child = syms->AddChild();
+            if (!_FuncDecl->Analyze(child))
+                success = false;
+            if (!_Body->Analyze(child))
+                success = false;
+            return success;
         }
     };
 
@@ -279,10 +332,13 @@ namespace ast
             }
         }
 
-        inline virtual void Analyze(SymbolTable *syms)
+        inline virtual bool Analyze(SymbolTable *syms)
         {
+            bool success = true;
             for (auto &i : _DeclList)
-                i->Analyze(syms);
+                if (!i->Analyze(syms))
+                    success = false;
+            return success;
         }
     };
 } // namespace ast

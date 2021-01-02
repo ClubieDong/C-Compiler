@@ -24,13 +24,15 @@ namespace ast
         {
             TypePrimitive *Type;
             Decl *TypeDeco;
+            bool Assignable;
 
-            inline explicit Symbol(TypePrimitive *type, Decl *deco)
-                : Type(type), TypeDeco(deco) {}
+            inline explicit Symbol() = default;
+            inline explicit Symbol(TypePrimitive *type, Decl *deco, bool assignable)
+                : Type(type), TypeDeco(deco), Assignable(assignable) {}
         };
 
     private:
-        SymbolTable *_Parent;
+        SymbolTable *_Parent = nullptr;
         arr<ptr<SymbolTable>> _Children;
         std::map<std::string, Symbol> _SymbolList;
 
@@ -47,8 +49,17 @@ namespace ast
             // Name already exists
             if (_SymbolList.find(name) != _SymbolList.end())
                 return false;
-            _SymbolList.emplace(name, Symbol(type, deco));
+            _SymbolList.emplace(name, Symbol(type, deco, true));
             return true;
+        }
+        inline const Symbol* Search(const std::string& name)
+        {
+            auto iter = _SymbolList.find(name);
+            if (iter != _SymbolList.end())
+                return &iter->second;
+            if (!_Parent)
+                return nullptr;
+            return _Parent->Search(name);
         }
     };
 

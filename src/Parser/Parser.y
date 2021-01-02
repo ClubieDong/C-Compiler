@@ -111,6 +111,21 @@ FuncDecl:
 | '(' error ')'                          { $$ = nullptr;                                                  }
 ;
 
+EmptyID:
+  /* empty */  { $$ = std::make_unique<ast::ID>("", _Scanner->GetLocation()); }
+;
+
+PureDecl:
+  EmptyID                                { $$ = std::make_unique<ast::VarDecl>($1);                       }
+| EmptyID '(' OptParamList ')'           { $$ = std::move($3); ast::cast<ast::FuncDecl>($$)->SetName($1); }
+| FuncDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayDecl>($1);                     }
+| FuncDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3);                 }
+| FuncDecl '[' error ']' %prec ARR       { $$ = nullptr;                                                  }
+| '*' FuncDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);                   }
+| '(' FuncDecl ')'                       { $$ = std::move($2);                                            }
+| '(' error ')'                          { $$ = nullptr;                                                  }
+;
+
 Decl:
   VarDecl   { $$ = std::move($1); }
 | FuncDecl  { $$ = std::move($1); }
