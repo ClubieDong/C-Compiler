@@ -2,10 +2,11 @@
 
 #include <memory>
 #include <vector>
-#include <cassert>
 #include <iostream>
 #include <optional>
 #include <string>
+
+#define ast_assert(x) if (!x) throw std::runtime_error("")
 
 namespace ast
 {
@@ -20,7 +21,7 @@ namespace ast
     public:
         virtual ~Base() = default;
 
-        inline virtual void Show(std::ostream &os = std::cout, const std::string &hint = "") const = 0;
+        inline virtual void Show(std::ostream &os = std::cout, const std::string &hint = "") const {};
     };
 
     class ID : public Base
@@ -43,7 +44,7 @@ namespace ast
         if (!base)
             return ptr<Derived>(nullptr);
         auto p = dynamic_cast<Derived *>(base.get());
-        assert(p);
+        ast_assert(p);
         ptr<Derived> res(p);
         base.release();
         return res;
@@ -52,9 +53,13 @@ namespace ast
     template <typename Derived>
     inline Derived *cast(ptr<Base> &base)
     {
-        assert(base);
+        ast_assert(base);
         auto p = dynamic_cast<Derived *>(base.get());
-        assert(p);
+        ast_assert(p);
         return p;
+    }
+
+    inline void PrintError(const std::string &msg)
+    {
     }
 } // namespace ast

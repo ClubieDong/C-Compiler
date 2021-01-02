@@ -1,4 +1,4 @@
-%baseclass-preinclude includes.h
+%baseclass-preinclude includes.hpp
 %default-actions off
 %no-lines
 
@@ -31,11 +31,13 @@ PrimaryExpression:
   NUM                 { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched())); }
 | ID                  { $$ = std::make_unique<ast::Variable>($1);                             }
 | '(' Expression ')'  { $$ = std::move($2);                                                   }
+| '(' error ')'       { $$ = nullptr;                                                         }
 ;
 
 PostExpression:
   PrimaryExpression                  { $$ = std::move($1);                                            }
 | PostExpression '(' OptArgList ')'  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1); }
+| PostExpression '(' error ')'       { $$ = nullptr;                                                  }
 ;
 
 PreExpression:
@@ -60,6 +62,7 @@ Expression:
 
 Statement:
   ';'                                             { $$ = std::make_unique<ast::ExprStmt>();         }
+| error ';'                                       { $$ = nullptr;                                   }
 | Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);       }
 | Declaration                                     { $$ = std::move($1);                             }
 | IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);     }
@@ -68,11 +71,13 @@ Statement:
 | RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>();       }
 | RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2);     }
 | '{' StatementList '}'                           { $$ = std::move($2);                             }
+| '{' error '}'                                   { $$ = nullptr;                                   }
 ;
 
 StatementList:
   /* empty */              { $$ = std::make_unique<ast::StatementList>();                        }
 | StatementList Statement  { $$ = std::move($1); ast::cast<ast::StatementList>($$)->AddStmt($2); }
+| StatementList error      { $$ = std::move($1);                                                 }
 ;
 
 OptArgList:
@@ -83,22 +88,27 @@ OptArgList:
 ArgList:
   Expression              { $$ = std::make_unique<ast::CallExpr>($1);                     }
 | ArgList ',' Expression  { $$ = std::move($1); ast::cast<ast::CallExpr>($$)->AddArg($3); }
+| ArgList ',' error       { $$ = std::move($1);                                           }
 ;
 
 VarDecl:
   ID                                    { $$ = std::make_unique<ast::VarDecl>($1);       }
 | VarDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayDecl>($1);     }
 | VarDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3); }
+| VarDecl '[' error ']' %prec ARR       { $$ = nullptr;                                  }
 | '*' VarDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);   }
 | '(' VarDecl ')'                       { $$ = std::move($2);                            }
+| '(' error ')'                         { $$ = nullptr;                                  }
 ;
 
 FuncDecl:
   ID '(' OptParamList ')'                { $$ = std::move($3); ast::cast<ast::FuncDecl>($$)->SetName($1); }
 | FuncDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayDecl>($1);                     }
 | FuncDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3);                 }
+| FuncDecl '[' error ']' %prec ARR       { $$ = nullptr;                                                  }
 | '*' FuncDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);                   }
 | '(' FuncDecl ')'                       { $$ = std::move($2);                                            }
+| '(' error ')'                          { $$ = nullptr;                                                  }
 ;
 
 Decl:
@@ -120,6 +130,7 @@ TypePrimitive:
 DeclList:
   InitDecl               { $$ = std::make_unique<ast::VarDeclaration>($1);                     }
 | DeclList ',' InitDecl  { $$ = std::move($1); ast::cast<ast::VarDeclaration>($$)->AddVar($3); }
+| DeclList ',' error     { $$ = std::move($1);                                                 }
 ;
 
 OptParamList:
@@ -131,14 +142,17 @@ OptParamList:
 ParamList:
   TypePrimitive Decl                { $$ = std::make_unique<ast::FuncDecl>($1, $2);                       }
 | ParamList ',' TypePrimitive Decl  { $$ = std::move($1); ast::cast<ast::FuncDecl>($$)->AddParam($3, $4); }
+| ParamList ',' error               { $$ = std::move($1);                                                 }
 ;
 
 Declaration:
   TypePrimitive DeclList ';'                    { $$ = std::move($2); ast::cast<ast::VarDeclaration>($$)->SetType($1); }
 | TypePrimitive FuncDecl '{' StatementList '}'  { $$ = std::make_unique<ast::FuncDeclaration>($1, $2, $4);             }
+| TypePrimitive FuncDecl '{' error '}'          { $$ = nullptr;                                                        }
 ;
 
 DeclarationList:
   Declaration                  { $$ = std::make_unique<ast::DeclarationList>($1);                      }
 | DeclarationList Declaration  { $$ = std::move($1); ast::cast<ast::DeclarationList>($$)->AddDecl($2); }
+| DeclarationList error        { $$ = std::move($1);                                                   }
 ;

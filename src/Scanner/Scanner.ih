@@ -3,3 +3,4 @@
 // $insert class_h
 #include "Scanner.h"
 #include "../Parser/Parser.h"
+#include "../ErrorHandler.hpp"

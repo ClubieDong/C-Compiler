@@ -3,28 +3,23 @@
 #pragma once
 
 #include "Scannerbase.h"
-#include <stack>
 
 class Scanner : public ScannerBase
 {
 private:
-    std::string _StoredLine;
-    unsigned int _Column = 0, _Row = 0;
-    bool _Reset = true;
-    std::stack<StartCondition_> _SCStack;
+    unsigned int _Column = 1, _Row = 1;
 
 public:
     inline explicit Scanner(std::istream &in = std::cin, std::ostream &out = std::cout)
-        : ScannerBase(in, out) { _SCStack.push(StartCondition_::MAIN); }
+        : ScannerBase(in, out) { }
     inline Scanner(std::string const &infile, std::string const &outfile)
-        : ScannerBase(infile, outfile) { _SCStack.push(StartCondition_::MAIN); }
+        : ScannerBase(infile, outfile) { }
 
     inline int lex() { return lex_(); }
 
-    inline const std::string& GetLine() const { return _StoredLine; }
     inline unsigned int GetRow() const { return _Row; }
-    inline unsigned int GetColumnStart() const { return _Column - length() + 1; }
-    inline unsigned int GetColumnEnd() const { return _Column; }
+    inline unsigned int GetColStart() const { return _Column - length(); }
+    inline unsigned int GetColEnd() const { return _Column; }
 
 private:
     int lex_();
@@ -40,25 +35,12 @@ private:
     // be exec'ed after the rules's actions.
     inline void postCode([[maybe_unused]] PostEnum_ type)
     {
-        if (!_Reset)
+        if (matched() != "\n")
             _Column += length();
         else
         {
-            _Reset = false;
-            _Column = 0;
+            _Column = 1;
             ++_Row;
         }
-    }
-
-    inline void pushStartCondition(StartCondition_ next)
-    {
-        _SCStack.push(startCondition());
-        begin(next);
-    }
-
-    inline void popStartCondition()
-    {
-        begin(_SCStack.top());
-        _SCStack.pop();
     }
 };

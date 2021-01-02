@@ -17,8 +17,8 @@ void TestScanner()
         std::cout << std::setw(10) << n;
         std::cout << std::setw(15) << s.matched();
         std::cout << std::setw(10) << s.GetRow();
-        std::cout << std::setw(10) << s.GetColumnStart();
-        std::cout << std::setw(10) << s.GetColumnEnd();
+        std::cout << std::setw(10) << s.GetColStart();
+        std::cout << std::setw(10) << s.GetColEnd();
         std::cout << '\n';
     };
 
@@ -85,13 +85,14 @@ void TestParser()
 {
     Scanner s;
     Parser p(s);
-    p.parse();
+    if (p.parse())
+        return;
     auto astRoot = p.GetRoot();
     astRoot->Show();
 }
 
 int main()
 {
-    TestScanner();
+    TestParser();
     return 0;
 }

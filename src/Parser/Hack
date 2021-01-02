@@ -1,0 +1,26 @@
+// This function will be appended to parse.cc
+
+std::vector<int> Parser::ValidTokens()
+{
+    auto sr = s_state[state_()];
+    auto last = sr + sr->d_lastIdx;
+    std::set<int> set;
+    std::vector<int> res;
+    for (; ++sr != last;)
+        if (sr->d_token > 0 && sr->d_token != 256 && 
+            sr->d_token < 257 + static_cast<int>(TOKEN_COUNT) &&
+            set.find(sr->d_token) == set.end())
+        {
+            set.insert(sr->d_token);
+            res.push_back(sr->d_token);
+        }
+    if (sr == last && sr->d_action < 0)
+        if (sr->d_token > 0 && sr->d_token != 256 && 
+            sr->d_token < 257 + static_cast<int>(TOKEN_COUNT) &&
+            set.find(sr->d_token) == set.end())
+        {
+            set.insert(sr->d_token);
+            res.push_back(sr->d_token);
+        }
+    return res;
+}
