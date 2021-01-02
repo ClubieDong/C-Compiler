@@ -2,6 +2,7 @@
 #include <iomanip>
 #include "Scanner/Scanner.ih"
 #include "Parser/Parser.ih"
+#include "SymbolTable.hpp"
 
 void TestScanner()
 {
@@ -16,9 +17,9 @@ void TestScanner()
     auto output = [&](const auto &n) {
         std::cout << std::setw(10) << n;
         std::cout << std::setw(15) << s.matched();
-        std::cout << std::setw(10) << s.GetRow();
-        std::cout << std::setw(10) << s.GetColStart();
-        std::cout << std::setw(10) << s.GetColEnd();
+        std::cout << std::setw(10) << s.GetLocation().Row;
+        std::cout << std::setw(10) << s.GetLocation().ColStart;
+        std::cout << std::setw(10) << s.GetLocation().ColEnd;
         std::cout << '\n';
     };
 
@@ -89,6 +90,8 @@ void TestParser()
         return;
     auto astRoot = p.GetRoot();
     astRoot->Show();
+    ast::SymbolTable syms;
+    astRoot->Analyze(&syms);
 }
 
 int main()

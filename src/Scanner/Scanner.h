@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Scannerbase.h"
+#include "../ErrorHandler.hpp"
 
 class Scanner : public ScannerBase
 {
@@ -11,15 +12,16 @@ private:
 
 public:
     inline explicit Scanner(std::istream &in = std::cin, std::ostream &out = std::cout)
-        : ScannerBase(in, out) { }
+        : ScannerBase(in, out) {}
     inline Scanner(std::string const &infile, std::string const &outfile)
-        : ScannerBase(infile, outfile) { }
+        : ScannerBase(infile, outfile) {}
 
     inline int lex() { return lex_(); }
 
-    inline unsigned int GetRow() const { return _Row; }
-    inline unsigned int GetColStart() const { return _Column - length(); }
-    inline unsigned int GetColEnd() const { return _Column; }
+    inline ErrorHandler::Location GetLocation() const
+    {
+        return ErrorHandler::Location(_Row, _Column - length(), _Column);
+    }
 
 private:
     int lex_();

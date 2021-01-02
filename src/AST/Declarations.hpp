@@ -49,6 +49,9 @@ namespace ast
 
     class Decl : public Base
     {
+    public:
+        inline virtual std::string GetName() const = 0;
+        inline virtual const ErrorHandler::Location &GetLocation() const = 0;
     };
 
     class VarDecl : public Decl
@@ -64,6 +67,9 @@ namespace ast
             os << hint << "VarDecl: \n";
             _Name->Show(os, hint + '\t');
         }
+
+        inline virtual std::string GetName() const { return _Name->GetName(); };
+        inline virtual const ErrorHandler::Location &GetLocation() const { return _Name->GetLocation(); }
     };
 
     class FuncDecl : public Decl
@@ -100,6 +106,9 @@ namespace ast
                 param._Decl->Show(os, hint + "\t\t\t");
             }
         }
+
+        inline virtual std::string GetName() const { return _Name->GetName(); };
+        inline virtual const ErrorHandler::Location &GetLocation() const { return _Name->GetLocation(); }
     };
 
     class ArrayDecl : public Decl
@@ -124,6 +133,9 @@ namespace ast
             os << hint << "\tType: \n";
             _Type->Show(os, hint + "\t\t");
         }
+
+        inline virtual std::string GetName() const { return _Type->GetName(); };
+        inline virtual const ErrorHandler::Location &GetLocation() const { return _Type->GetLocation(); }
     };
 
     class PointerDecl : public Decl
@@ -139,6 +151,9 @@ namespace ast
             os << hint << "Pointer: \n";
             _Type->Show(os, hint + '\t');
         }
+
+        inline virtual std::string GetName() const { return _Type->GetName(); };
+        inline virtual const ErrorHandler::Location &GetLocation() const { return _Type->GetLocation(); }
     };
 
     class InitDecl : public Base
@@ -163,6 +178,17 @@ namespace ast
                 _Init->Show(os, hint + "\t\t");
             }
         }
+
+        inline virtual void Analyze(SymbolTable *syms)
+        {
+            if (_Init)
+            {
+                _Init->Analyze(syms);
+                // TODO: Cast
+            }
+        }
+
+        inline Decl *GetVar() { return _Var.get(); }
     };
 
     class Declaration : public Statement
@@ -192,6 +218,18 @@ namespace ast
                 var->Show(os, hint + "\t\t");
             }
         }
+
+        inline virtual void Analyze(SymbolTable *syms)
+        {
+            _Type->Analyze(syms);
+            for (auto &i : _VarList)
+            {
+                auto var = i->GetVar();
+                i->Analyze(syms);
+                if (!syms->AddSymbol(var->GetName(), _Type.get(), var))
+                    ErrorHandler::PrintError("Redeclaration of " + var->GetName(), var->GetLocation());
+            }
+        }
     };
 
     class FuncDeclaration : public Declaration
@@ -215,6 +253,11 @@ namespace ast
             os << hint << "\tBody: \n";
             _Body->Show(os, hint + "\t\t");
         }
+
+        inline virtual void Analyze(SymbolTable *syms)
+        {
+            syms->AddSymbol(_FuncDecl->GetName(), _Type.get(), _FuncDecl.get());
+        }
     };
 
     class DeclarationList : public Base
@@ -234,6 +277,12 @@ namespace ast
                 os << hint << "Declaration: \n";
                 decl->Show(os, hint + '\t');
             }
+        }
+
+        inline virtual void Analyze(SymbolTable *syms)
+        {
+            for (auto &i : _DeclList)
+                i->Analyze(syms);
         }
     };
 } // namespace ast

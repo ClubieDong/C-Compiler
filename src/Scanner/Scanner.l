@@ -7,7 +7,7 @@
 "/*"                       begin(StartCondition_::COMMENT); // 开始识别多行注释
 <COMMENT>"*/"              begin(StartCondition_::INITIAL); // 多行注释结束
 <COMMENT>.|\n              // 跳过所有多行注释内容
-<COMMENT><<EOF>>           ErrorHandler::PrintWarning("Unterminated comment", GetRow(), GetColStart(), GetColEnd());
+<COMMENT><<EOF>>           ErrorHandler::PrintWarning("Unterminated comment", GetLocation());
 
 void                       return Parser::VOID;
 int                        return Parser::INT;
@@ -27,4 +27,4 @@ struct                     return Parser::STRUCT;
 "=="                       return Parser::EQ;
 "!="                       return Parser::NE;
 
-.                          ErrorHandler::PrintWarning("Unknown character ignored: " + matched(), GetRow(), GetColStart(), GetColEnd()); // 未知字符
+.                          ErrorHandler::PrintWarning("Unknown character ignored: " + matched(), GetLocation()); // 未知字符

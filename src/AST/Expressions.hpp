@@ -6,6 +6,9 @@ namespace ast
 {
     class Expression : public Base
     {
+    protected:
+        ptr<TypePrimitive> _Type;
+        ptr<Decl> _TypeDeco;
     };
 
     class Constant : public Expression

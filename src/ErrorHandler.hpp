@@ -6,17 +6,23 @@
 class ErrorHandler
 {
 public:
-    static void PrintError(const std::string &msg, unsigned int row,
-                           unsigned int colStart, unsigned int colEnd)
+    struct Location
     {
-        std::cerr << row << ':' << colStart << '-' << colEnd << '\t';
+        unsigned int Row, ColStart, ColEnd;
+        inline explicit Location() = default;
+        inline explicit Location(unsigned int row, unsigned int colStart, unsigned int colEnd)
+            : Row(row), ColStart(colStart), ColEnd(colEnd) {}
+    };
+
+    static void PrintError(const std::string &msg, const Location &loc)
+    {
+        std::cerr << loc.Row << ':' << loc.ColStart << '-' << loc.ColEnd << '\t';
         std::cerr << "Error: " << msg << '\n';
     }
 
-    static void PrintWarning(const std::string &msg, unsigned int row,
-                           unsigned int colStart, unsigned int colEnd)
+    static void PrintWarning(const std::string &msg, const Location &loc)
     {
-        std::cerr << row << ':' << colStart << '-' << colEnd << '\t';
+        std::cerr << loc.Row << ':' << loc.ColStart << '-' << loc.ColEnd << '\t';
         std::cerr << "Warning: " << msg << '\n';
     }
 };

@@ -24,7 +24,7 @@ Program:
 ;
 
 ID:
-  ID_TEXT  { $$ = std::make_unique<ast::ID>(_Scanner->matched()); }
+  ID_TEXT  { $$ = std::make_unique<ast::ID>(_Scanner->matched(), _Scanner->GetLocation()); }
 ;
 
 PrimaryExpression:

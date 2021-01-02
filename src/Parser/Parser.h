@@ -68,8 +68,7 @@ private:
                 ss << ", " << Tok2Str(validTokens[i]);
             ss << " or " << Tok2Str(validTokens.back()) << " before " << MachedStr();
         }
-        ErrorHandler::PrintError(ss.str(), _Scanner->GetRow(),
-                                 _Scanner->GetColStart(), _Scanner->GetColEnd());
+        ErrorHandler::PrintError(ss.str(), _Scanner->GetLocation());
     }
 
     // returns the next token from the
