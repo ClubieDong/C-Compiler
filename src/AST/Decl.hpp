@@ -18,7 +18,8 @@ namespace ast
         inline virtual const ErrorHandler::Location &GetLocation() const = 0;
         inline virtual FuncDecl *GetFuncDecl() = 0;
 
-        inline virtual llvm::Type *TypeGen(llvm::LLVMContext &context, llvm::Type *type) = 0;
+        inline virtual llvm::Type *TypeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                           llvm::IRBuilder<> &builder, llvm::Type *type, bool isRef) = 0;
     };
 
     class VarDecl : public Decl
@@ -40,7 +41,8 @@ namespace ast
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Name->GetLocation(); }
         inline virtual FuncDecl *GetFuncDecl() override { return nullptr; }
 
-        inline virtual llvm::Type *TypeGen(llvm::LLVMContext &context, llvm::Type *type) override
+        inline virtual llvm::Type *TypeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                           llvm::IRBuilder<> &builder, llvm::Type *type, bool isRef) override
         {
             return type;
         }
@@ -99,7 +101,8 @@ namespace ast
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Name->GetLocation(); }
         inline virtual FuncDecl *GetFuncDecl() override { return this; }
 
-        inline virtual llvm::Type *TypeGen(llvm::LLVMContext &context, llvm::Type *type) override
+        inline virtual llvm::Type *TypeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                           llvm::IRBuilder<> &builder, llvm::Type *type, bool isRef) override
         {
             return type;
         }
@@ -137,7 +140,24 @@ namespace ast
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Type->GetLocation(); }
         inline virtual FuncDecl *GetFuncDecl() override { return _Type->GetFuncDecl(); }
 
-        virtual llvm::Type *TypeGen(llvm::LLVMContext &context, llvm::Type *type) override;
+        virtual llvm::Type *TypeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                    llvm::IRBuilder<> &builder, llvm::Type *type, bool isRef) override
+        {
+            if (isRef)
+            {
+                ErrorHandler::PrintError("Array of reference is not allowed", _Type->GetLocation());
+                return nullptr;
+            }
+            auto size = _Size->CodeGen(syms, context, builder);
+            if (!size)
+                return nullptr;
+            if (auto c = llvm::dyn_cast<llvm::ConstantInt>(size->Value))
+            {
+                type = llvm::ArrayType::get(type, c->getSExtValue());
+                return _Type->TypeGen(syms, context, builder, type, false);
+            }
+            return nullptr;
+        }
     };
 
     class PointerDecl : public Decl
@@ -163,7 +183,17 @@ namespace ast
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Type->GetLocation(); }
         inline virtual FuncDecl *GetFuncDecl() override { return _Type->GetFuncDecl(); }
 
-        virtual llvm::Type *TypeGen(llvm::LLVMContext &context, llvm::Type *type) override;
+        virtual llvm::Type *TypeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                    llvm::IRBuilder<> &builder, llvm::Type *type, bool isRef) override
+        {
+            if (isRef)
+            {
+                ErrorHandler::PrintError("Pointer to reference is not allowed", _Type->GetLocation());
+                return nullptr;
+            }
+            type = llvm::PointerType::get(type, 0);
+            return _Type->TypeGen(syms, context, builder, type, false);
+        }
     };
 
     class ReferenceDecl : public Decl
@@ -189,17 +219,16 @@ namespace ast
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Type->GetLocation(); }
         inline virtual FuncDecl *GetFuncDecl() override { return _Type->GetFuncDecl(); }
 
-        inline virtual llvm::Type *TypeGen(llvm::LLVMContext &context, llvm::Type *type) override
+        inline virtual llvm::Type *TypeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                           llvm::IRBuilder<> &builder, llvm::Type *type, bool isRef) override
         {
-            if (dynamic_cast<ReferenceDecl *>(_Type.get()))
+            if (isRef)
             {
                 ErrorHandler::PrintError("Reference to reference is not allowed", _Type->GetLocation());
                 return nullptr;
             }
-            type = _Type->TypeGen(context, type);
-            if (!type)
-                return nullptr;
-            return llvm::PointerType::get(type, 0);
+            type = llvm::PointerType::get(type, 0);
+            return _Type->TypeGen(syms, context, builder, type, true);
         }
     };
 
@@ -255,7 +284,7 @@ namespace ast
                 ErrorHandler::PrintError("Reference requires an initializer", _Var->GetLocation());
                 return nullptr;
             }
-            type = _Var->TypeGen(context, type);
+            type = _Var->TypeGen(syms, context, builder, type, false);
             llvm::Value *value;
             if (auto func = _Var->GetFuncDecl())
             {
@@ -291,7 +320,9 @@ namespace ast
                     ErrorHandler::PrintError("Type of the initial value does not match the declared type", _Var->GetLocation());
                     return nullptr;
                 }
-                builder.CreateStore(initValue->Value, value);
+                // Dereference
+                initValue->IsRef = false;
+                Expression::Assign(SymbolTable::Symbol(value, true), *initValue, _Var->GetLocation(), builder);
             }
             else
                 Expression::Assign(SymbolTable::Symbol(value, true), *initValue, _Var->GetLocation(), builder);

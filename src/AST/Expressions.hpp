@@ -455,6 +455,7 @@ namespace ast
                         type = right->Value->getType();
                     else
                         assert(false);
+                    // TODO: size of pointer element
                     llvm::Value *value;
                     if (_Op == ADD)
                         value = builder.CreateAdd(newL, newR);
@@ -495,7 +496,10 @@ namespace ast
     public:
         enum UnOp
         {
-            NEG
+            POS,
+            NEG,
+            DEREF,
+            ADDR
         };
 
     private:
@@ -508,7 +512,7 @@ namespace ast
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            constexpr const char *ENUM_NAMES[] = {"NEG"};
+            constexpr const char *ENUM_NAMES[] = {"NEG", "POS", "DEREF", "ADDR"};
             os << hint << "UnOpExpr: " << ENUM_NAMES[_Op] << '\n';
             _Operand->Show(os, hint + '\t');
         }
@@ -523,6 +527,58 @@ namespace ast
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
         {
+            auto value = _Operand->CodeGen(syms, context, builder);
+            if (_Op == POS)
+            {
+                value = Dereference(value, builder);
+                if (!value->Value->getType()->isIntegerTy() && !value->Value->getType()->isFloatingPointTy())
+                {
+                    ErrorHandler::PrintError("Invalid positive operator", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                return value;
+            }
+            if (_Op == NEG)
+            {
+                value = Dereference(value, builder);
+                if (!value->Value->getType()->isIntegerTy() && !value->Value->getType()->isFloatingPointTy())
+                {
+                    ErrorHandler::PrintError("Invalid negative operator", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                if (value->Value->getType()->isIntegerTy())
+                    return SymbolTable::Symbol(builder.CreateNeg(value->Value), false);
+                if (value->Value->getType()->isFloatingPointTy())
+                    return SymbolTable::Symbol(builder.CreateFNeg(value->Value), false);
+                assert(false);
+            }
+            if (_Op == DEREF)
+            {
+                value = Dereference(value, builder);
+                if (!value->Value->getType()->isArrayTy() && !value->Value->getType()->isPointerTy())
+                {
+                    ErrorHandler::PrintError("Invalid dereference operator", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                if (value->Value->getType()->isArrayTy())
+                {
+                    auto eleTy = value->Value->getType()->getArrayElementType();
+                    auto v = builder.CreateBitCast(value->Value, llvm::PointerType::get(eleTy, 0));
+                    return SymbolTable::Symbol(v, true);
+                }
+                if (value->Value->getType()->isPointerTy())
+                    return SymbolTable::Symbol(value->Value, true);
+                assert(false);
+            }
+            if (_Op == ADDR)
+            {
+                if (!value->IsRef)
+                {
+                    ErrorHandler::PrintError("Expression must be an lvalue", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                return SymbolTable::Symbol(value->Value, false);
+            }
             return std::nullopt;
         };
     };
