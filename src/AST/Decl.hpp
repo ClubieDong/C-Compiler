@@ -286,15 +286,15 @@ namespace ast
                     ErrorHandler::PrintError("Initial value of reference must be an lvalue", _Var->GetLocation());
                     return nullptr;
                 }
-                // TODO: need to check type
+                if (type != initValue->Value->getType())
+                {
+                    ErrorHandler::PrintError("Type of the initial value does not match the declared type", _Var->GetLocation());
+                    return nullptr;
+                }
                 builder.CreateStore(initValue->Value, value);
             }
             else
-            {
-                // TODO: need to check type
-                initValue = Expression::Dereference(initValue, builder);
-                builder.CreateStore(initValue->Value, value);
-            }
+                Expression::Assign(SymbolTable::Symbol(value, true), *initValue, _Var->GetLocation(), builder);
             return value;
         }
     };

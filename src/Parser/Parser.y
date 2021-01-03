@@ -28,16 +28,16 @@ ID:
 ;
 
 PrimaryExpression:
-  TRUE                { $$ = std::make_unique<ast::Constant>(true);                                         }
-| FALSE               { $$ = std::make_unique<ast::Constant>(false);                                        }
-| CONSTINT            { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched()));              }
-| CONSTINT_BIN        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 2));  }
-| CONSTINT_OCT        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 8));  }
-| CONSTINT_HEX        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 16)); }
-| CONSTFP             { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()));               }
-| ID                  { $$ = std::make_unique<ast::Variable>($1);                                           }
-| '(' Expression ')'  { $$ = std::move($2);                                                                 }
-| '(' error ')'       { $$ = nullptr;                                                                       }
+  TRUE                { $$ = std::make_unique<ast::Constant>(true, _Scanner->GetLocation());                                         }
+| FALSE               { $$ = std::make_unique<ast::Constant>(false, _Scanner->GetLocation());                                        }
+| CONSTINT            { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched()), _Scanner->GetLocation());              }
+| CONSTINT_BIN        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 2), _Scanner->GetLocation());  }
+| CONSTINT_OCT        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 8), _Scanner->GetLocation());  }
+| CONSTINT_HEX        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 16), _Scanner->GetLocation()); }
+| CONSTFP             { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()), _Scanner->GetLocation());               }
+| ID                  { $$ = std::make_unique<ast::Variable>($1);                                                                    }
+| '(' Expression ')'  { $$ = std::move($2);                                                                                          }
+| '(' error ')'       { $$ = nullptr;                                                                                                }
 ;
 
 PostExpression:
