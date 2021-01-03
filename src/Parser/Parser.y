@@ -4,10 +4,10 @@
 
 %stype std::unique_ptr<ast::Base>
 
-%token VOID INT
-%token RETURN IF ELSE WHILE STRUCT
-%token NUM
+%token VOID BOOL CHAR SHORT INT LONG FLOAT DOUBLE
+%token TRUE FALSE RETURN IF ELSE WHILE STRUCT
 %token ID_TEXT
+%token CONSTINT CONSTINT_BIN CONSTINT_OCT CONSTINT_HEX CONSTFP
 
 %right PTR
 %left ARR
@@ -28,10 +28,16 @@ ID:
 ;
 
 PrimaryExpression:
-  NUM                 { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched())); }
-| ID                  { $$ = std::make_unique<ast::Variable>($1);                             }
-| '(' Expression ')'  { $$ = std::move($2);                                                   }
-| '(' error ')'       { $$ = nullptr;                                                         }
+  TRUE                { $$ = std::make_unique<ast::Constant>(true);                                         }
+| FALSE               { $$ = std::make_unique<ast::Constant>(false);                                        }
+| CONSTINT            { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched()));              }
+| CONSTINT_BIN        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 2));  }
+| CONSTINT_OCT        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 8));  }
+| CONSTINT_HEX        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 16)); }
+| CONSTFP             { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()));               }
+| ID                  { $$ = std::make_unique<ast::Variable>($1);                                           }
+| '(' Expression ')'  { $$ = std::move($2);                                                                 }
+| '(' error ')'       { $$ = nullptr;                                                                       }
 ;
 
 PostExpression:
@@ -140,9 +146,15 @@ InitDecl:
 ;
 
 TypePrimitive:
-  VOID       { $$ = std::make_unique<ast::BasicType>(ast::BasicType::VOID); }
-| INT        { $$ = std::make_unique<ast::BasicType>(ast::BasicType::INT);  }
-| STRUCT ID  { $$ = std::make_unique<ast::CustomType>($2);                  }
+  VOID       { $$ = std::make_unique<ast::BasicType>(ast::BasicType::VOID);   }
+| BOOL       { $$ = std::make_unique<ast::BasicType>(ast::BasicType::BOOL);   }
+| CHAR       { $$ = std::make_unique<ast::BasicType>(ast::BasicType::CHAR);   }
+| SHORT      { $$ = std::make_unique<ast::BasicType>(ast::BasicType::SHORT);  }
+| INT        { $$ = std::make_unique<ast::BasicType>(ast::BasicType::INT);    }
+| LONG       { $$ = std::make_unique<ast::BasicType>(ast::BasicType::LONG);   }
+| FLOAT      { $$ = std::make_unique<ast::BasicType>(ast::BasicType::FLOAT);  }
+| DOUBLE     { $$ = std::make_unique<ast::BasicType>(ast::BasicType::DOUBLE); }
+| STRUCT ID  { $$ = std::make_unique<ast::CustomType>($2);                    }
 ;
 
 DeclList:

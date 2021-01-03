@@ -19,8 +19,13 @@ namespace ast
         enum Type
         {
             VOID,
-            INT,
             BOOL,
+            CHAR,
+            SHORT,
+            INT,
+            LONG,
+            FLOAT,
+            DOUBLE
         };
 
     private:
@@ -31,7 +36,8 @@ namespace ast
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            constexpr const char *ENUM_NAMES[] = {"VOID", "INT", "BOOL"};
+            constexpr const char *ENUM_NAMES[] = {"VOID", "BOOL", "CHAR", "SHORT",
+                                                  "INT", "LONG", "FLOAT", "DOUBLE"};
             os << hint << "BasicType: " << ENUM_NAMES[_Type] << '\n';
         }
 
@@ -41,10 +47,20 @@ namespace ast
             {
             case VOID:
                 return llvm::Type::getVoidTy(context);
-            case INT:
-                return llvm::Type::getInt32Ty(context);
             case BOOL:
                 return llvm::Type::getInt1Ty(context);
+            case CHAR:
+                return llvm::Type::getInt8Ty(context);
+            case SHORT:
+                return llvm::Type::getInt16Ty(context);
+            case INT:
+                return llvm::Type::getInt32Ty(context);
+            case LONG:
+                return llvm::Type::getInt64Ty(context);
+            case FLOAT:
+                return llvm::Type::getFloatTy(context);
+            case DOUBLE:
+                return llvm::Type::getDoubleTy(context);
             default:
                 return nullptr;
             }
@@ -71,4 +87,4 @@ namespace ast
             return nullptr;
         }
     };
-}
+} // namespace ast

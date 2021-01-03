@@ -26,12 +26,16 @@ class Parser : public ParserBase
 private:
     Scanner *_Scanner;
     std::unique_ptr<ast::Base> _Root;
-    inline static constexpr const char *TOKEN_NAMES[] =
-        {"void", "int", "return", "if", "else", "while", "struct",
-         "num", "ID", "PTR", "ARR", "'<='", "'>='", "'=='", "'!='"};
-    inline static constexpr unsigned int TOKEN_COUNT = sizeof(TOKEN_NAMES) / sizeof(*TOKEN_NAMES);
 
 public:
+    // TODO
+    inline static constexpr const char *TOKEN_NAMES[] = {"void", "bool", "char", "short", "int", "long",
+                                                         "float", "double", "true", "false", "return", 
+                                                         "if", "else", "while", "struct", "ID", "DecInt", 
+                                                         "BinInt", "OctInt", "HexInt", "Float", "PTR", 
+                                                         "ARR", "<=", ">=", "==", "!="};
+    inline static constexpr unsigned int TOKEN_COUNT = sizeof(TOKEN_NAMES) / sizeof(*TOKEN_NAMES);
+
     inline Parser(Scanner &scanner) : _Scanner(&scanner) {}
     int parse();
 

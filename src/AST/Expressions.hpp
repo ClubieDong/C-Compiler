@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <variant>
+#include <cassert>
 #include "Base.hpp"
 
 namespace ast
@@ -29,14 +30,23 @@ namespace ast
     class Constant : public Expression
     {
     private:
-        int _Value;
+        std::variant<bool, long long, double> _Value;
 
     public:
-        inline explicit Constant(int value) : _Value(value) {}
+        inline explicit Constant(bool value) : _Value(value) {}
+        inline explicit Constant(long long value) : _Value(value) {}
+        inline explicit Constant(double value) : _Value(value) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            os << hint << "Constant: " << _Value << '\n';
+            if (auto pv = std::get_if<bool>(&_Value))
+                os << hint << "Constant: " << (*pv ? "true" : "false") << '\n';
+            if (auto pv = std::get_if<long long>(&_Value))
+                os << hint << "Constant: " << *pv << '\n';
+            else if (auto pv = std::get_if<double>(&_Value))
+                os << hint << "Constant: " << *pv << '\n';
+            else
+                assert(false);
         }
 
         // virtual bool Analyze(SymbolTable *syms);
@@ -44,9 +54,24 @@ namespace ast
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
         {
-            // TODO: More types
-            auto type = llvm::Type::getInt32Ty(context);
-            auto value = llvm::ConstantInt::get(type, llvm::APInt(32, _Value, true));
+            llvm::Value *value;
+            if (auto pv = std::get_if<bool>(&_Value))
+            {
+                auto type = llvm::Type::getInt1Ty(context);
+                value = llvm::ConstantInt::get(type, llvm::APInt(1, *pv, false));
+            }
+            else if (auto pv = std::get_if<long long>(&_Value))
+            {
+                auto type = llvm::Type::getInt64Ty(context);
+                value = llvm::ConstantInt::get(type, llvm::APInt(64, *pv, true));
+            }
+            else if (auto pv = std::get_if<double>(&_Value))
+            {
+                auto type = llvm::Type::getDoubleTy(context);
+                value = llvm::ConstantFP::get(type, llvm::APFloat(*pv));
+            }
+            else
+                assert(false);
             return SymbolTable::Symbol(value, false);
         };
     };

@@ -10,7 +10,7 @@ namespace ast
 {
     class FuncDecl;
     class ReferenceDecl;
-    
+
     class Decl : public Base
     {
     public:
@@ -263,9 +263,16 @@ namespace ast
                 throw "Not implemented";
             }
             else
+            {
+                if (type->isVoidTy())
+                {
+                    ErrorHandler::PrintError("Void type is not allowed here", _Var->GetLocation());
+                    return nullptr;
+                }
                 value = new llvm::GlobalVariable(mod, type, false,
                                                  llvm::GlobalValue::LinkageTypes::PrivateLinkage,
                                                  llvm::Constant::getNullValue(type), name);
+            }
             syms.AddSymbol(_Var->GetName(), SymbolTable::Symbol(value, true));
             if (!_Init)
                 return value;

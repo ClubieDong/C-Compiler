@@ -28,57 +28,9 @@ void TestScanner()
         auto tok = s.lex();
         if (tok == 0)
             break;
-        switch (tok)
-        {
-        case Parser::VOID:
-            output("VOID");
-            break;
-        case Parser::INT:
-            output("INT");
-            break;
-        case Parser::RETURN:
-            output("RETURN");
-            break;
-        case Parser::IF:
-            output("IF");
-            break;
-        case Parser::ELSE:
-            output("ELSE");
-            break;
-        case Parser::WHILE:
-            output("WHILE");
-            break;
-        case Parser::STRUCT:
-            output("STRUCT");
-            break;
-        case Parser::NUM:
-            output("NUM");
-            break;
-        case Parser::ID_TEXT:
-            output("ID");
-            break;
-        case Parser::PTR:
-            output("PTR");
-            break;
-        case Parser::ARR:
-            output("ARR");
-            break;
-        case Parser::LE:
-            output("LE");
-            break;
-        case Parser::GE:
-            output("GE");
-            break;
-        case Parser::EQ:
-            output("EQ");
-            break;
-        case Parser::NE:
-            output("NE");
-            break;
-        default:
+        if (tok < 256)
             output("CHAR");
-            break;
-        }
+        output(Parser::TOKEN_NAMES[tok - 257]);
     }
 }
 
