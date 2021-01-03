@@ -40,13 +40,16 @@ namespace ast
     template <typename T>
     using arr = std::vector<T>;
 
+    template <typename T>
+    using opt = std::optional<T>;
+
     class Base
     {
     public:
         virtual ~Base() = default;
 
         inline virtual void Show(std::ostream &os = std::cout, const std::string &hint = "") const {}
-        inline virtual bool Analyze(SymbolTable *syms) { return true; }
+        // inline virtual bool Analyze(SymbolTable *syms) { return true; }
     };
 
     class ID : public Base
@@ -56,7 +59,7 @@ namespace ast
         ErrorHandler::Location _Location;
 
     public:
-        inline explicit ID(const std::string &id, const ErrorHandler::Location& loc)
+        inline explicit ID(const std::string &id, const ErrorHandler::Location &loc)
             : _ID(id), _Location(loc) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
@@ -65,7 +68,7 @@ namespace ast
         }
 
         inline std::string GetName() const { return _ID; }
-        inline const ErrorHandler::Location& GetLocation() const { return _Location; }
+        inline const ErrorHandler::Location &GetLocation() const { return _Location; }
     };
 
     template <typename Derived>

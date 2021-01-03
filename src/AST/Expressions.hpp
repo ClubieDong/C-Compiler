@@ -8,16 +8,28 @@ namespace ast
 {
     class Expression : public Base
     {
-    protected:
-        SymbolTable::Symbol _ExprType;
+    public:
+        inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                        llvm::IRBuilder<> &builder)
+        {
+            return std::nullopt;
+        };
+
+        inline static opt<SymbolTable::Symbol> Dereference(opt<SymbolTable::Symbol> sym, llvm::IRBuilder<> &builder)
+        {
+            if (!sym)
+                return std::nullopt;
+            if (!sym->IsRef)
+                return sym;
+            auto value = builder.CreateLoad(sym->Value, "");
+            return SymbolTable::Symbol(value, false);
+        }
     };
 
     class Constant : public Expression
     {
     private:
         int _Value;
-        ptr<TypePrimitive> _Type;
-        ptr<Decl> _TypeDeco;
 
     public:
         inline explicit Constant(int value) : _Value(value) {}
@@ -27,7 +39,16 @@ namespace ast
             os << hint << "Constant: " << _Value << '\n';
         }
 
-        virtual bool Analyze(SymbolTable *syms);
+        // virtual bool Analyze(SymbolTable *syms);
+
+        inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                        llvm::IRBuilder<> &builder) override
+        {
+            // TODO: More types
+            auto type = llvm::Type::getInt32Ty(context);
+            auto value = llvm::ConstantInt::get(type, llvm::APInt(32, _Value, true));
+            return SymbolTable::Symbol(value, false);
+        };
     };
 
     class Variable : public Expression
@@ -44,19 +65,34 @@ namespace ast
             _Name->Show(os, hint + '\t');
         }
 
-        inline virtual bool Analyze(SymbolTable *syms)
+        // inline virtual bool Analyze(SymbolTable *syms)
+        // {
+        //     auto res = syms->Search(_Name->GetName());
+        //     if (!res)
+        //     {
+        //         std::ostringstream ss;
+        //         ss << '\'' << _Name->GetName() << "' was not declared in this scope";
+        //         ErrorHandler::PrintError(ss.str(), _Name->GetLocation());
+        //         return false;
+        //     }
+        //     _ExprType = *res;
+        //     return true;
+        // }
+
+        inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                        llvm::IRBuilder<> &builder) override
         {
-            auto res = syms->Search(_Name->GetName());
-            if (!res)
+            const auto &name = _Name->GetName();
+            auto value = syms.Search(name);
+            if (!value)
             {
                 std::ostringstream ss;
-                ss << '\'' << _Name->GetName() << "' was not declared in this scope";
+                ss << '\'' << name << "' was not declared in this scope";
                 ErrorHandler::PrintError(ss.str(), _Name->GetLocation());
-                return false;
+                return std::nullopt;
             }
-            _ExprType = *res;
-            return true;
-        }
+            return SymbolTable::Symbol(value->Value, true);
+        };
     };
 
     class BiOpExpr : public Expression
@@ -96,12 +132,18 @@ namespace ast
             _Right->Show(os, hint + "\t\t");
         }
 
-        inline virtual bool Analyze(SymbolTable *syms)
+        // inline virtual bool Analyze(SymbolTable *syms)
+        // {
+        //     bool l = _Left->Analyze(syms);
+        //     bool r = _Right->Analyze(syms);
+        //     return l && r;
+        // }
+
+        inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                        llvm::IRBuilder<> &builder) override
         {
-            bool l = _Left->Analyze(syms);
-            bool r = _Right->Analyze(syms);
-            return l && r;
-        }
+            return std::nullopt;
+        };
     };
 
     class UnOpExpr : public Expression
@@ -127,10 +169,16 @@ namespace ast
             _Operand->Show(os, hint + '\t');
         }
 
-        inline virtual bool Analyze(SymbolTable *syms)
+        // inline virtual bool Analyze(SymbolTable *syms)
+        // {
+        //     return _Operand->Analyze(syms);
+        // }
+
+        inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                        llvm::IRBuilder<> &builder) override
         {
-            return _Operand->Analyze(syms);
-        }
+            return std::nullopt;
+        };
     };
 
     class CallExpr : public Expression
@@ -161,16 +209,22 @@ namespace ast
                 }
         }
 
-        inline virtual bool Analyze(SymbolTable *syms)
+        // inline virtual bool Analyze(SymbolTable *syms)
+        // {
+        //     bool success = true;
+        //     if (!_Func->Analyze(syms))
+        //         success = false;
+        //     for (auto& i : _ArgList)
+        //         if (!i->Analyze(syms))
+        //             success = false;
+        //     return success;
+        // }
+
+        inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                        llvm::IRBuilder<> &builder) override
         {
-            bool success = true;
-            if (!_Func->Analyze(syms))
-                success = false;
-            for (auto& i : _ArgList)
-                if (!i->Analyze(syms))
-                    success = false;
-            return success;
-        }
+            return std::nullopt;
+        };
     };
 
 } // namespace ast

@@ -90,12 +90,24 @@ void TestParser()
         return;
     auto astRoot = p.GetRoot();
     astRoot->Show();
-    ast::SymbolTable syms;
-    astRoot->Analyze(&syms);
+}
+
+void TestLLVM()
+{
+    Scanner s;
+    Parser p(s);
+    if (p.parse())
+        return;
+    auto astRoot = p.GetRoot();
+    llvm::LLVMContext context;
+    llvm::Module mod("ClubieModule", context);
+    auto success = ast::cast<ast::DeclarationList>(astRoot)->CodeGen(context, mod);
+    if (success)
+        mod.print(llvm::outs(), nullptr);
 }
 
 int main()
 {
-    TestParser();
+    TestLLVM();
     return 0;
 }

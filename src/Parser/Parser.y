@@ -97,6 +97,7 @@ VarDecl:
 | VarDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3); }
 | VarDecl '[' error ']' %prec ARR       { $$ = nullptr;                                  }
 | '*' VarDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);   }
+| '&' VarDecl %prec PTR                 { $$ = std::make_unique<ast::ReferenceDecl>($2); }
 | '(' VarDecl ')'                       { $$ = std::move($2);                            }
 | '(' error ')'                         { $$ = nullptr;                                  }
 ;
@@ -107,6 +108,7 @@ FuncDecl:
 | FuncDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3);                 }
 | FuncDecl '[' error ']' %prec ARR       { $$ = nullptr;                                                  }
 | '*' FuncDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);                   }
+| '&' FuncDecl %prec PTR                 { $$ = std::make_unique<ast::ReferenceDecl>($2);                 }
 | '(' FuncDecl ')'                       { $$ = std::move($2);                                            }
 | '(' error ')'                          { $$ = nullptr;                                                  }
 ;
@@ -116,14 +118,15 @@ EmptyID:
 ;
 
 PureDecl:
-  EmptyID                                { $$ = std::make_unique<ast::VarDecl>($1);                       }
-| EmptyID '(' OptParamList ')'           { $$ = std::move($3); ast::cast<ast::FuncDecl>($$)->SetName($1); }
-| FuncDecl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayDecl>($1);                     }
-| FuncDecl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3);                 }
-| FuncDecl '[' error ']' %prec ARR       { $$ = nullptr;                                                  }
-| '*' FuncDecl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);                   }
-| '(' FuncDecl ')'                       { $$ = std::move($2);                                            }
-| '(' error ')'                          { $$ = nullptr;                                                  }
+  EmptyID                            { $$ = std::make_unique<ast::VarDecl>($1);                       }
+| EmptyID '(' OptParamList ')'       { $$ = std::move($3); ast::cast<ast::FuncDecl>($$)->SetName($1); }
+| Decl '[' ']' %prec ARR             { $$ = std::make_unique<ast::ArrayDecl>($1);                     }
+| Decl '[' Expression ']' %prec ARR  { $$ = std::make_unique<ast::ArrayDecl>($1, $3);                 }
+| Decl '[' error ']' %prec ARR       { $$ = nullptr;                                                  }
+| '*' Decl %prec PTR                 { $$ = std::make_unique<ast::PointerDecl>($2);                   }
+| '&' Decl %prec PTR                 { $$ = std::make_unique<ast::ReferenceDecl>($2);                 }
+| '(' Decl ')'                       { $$ = std::move($2);                                            }
+| '(' error ')'                      { $$ = nullptr;                                                  }
 ;
 
 Decl:

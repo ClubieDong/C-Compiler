@@ -14,25 +14,18 @@ namespace ast
     template <typename T>
     using arr = std::vector<T>;
 
-    class TypePrimitive;
-    class Decl;
-
     class SymbolTable
     {
     public:
-        struct Symbol
+        class Symbol
         {
-            TypePrimitive *Type;
-            Decl *TypeDeco;
-            bool Assignable;
-
-            inline explicit Symbol() = default;
-            inline explicit Symbol(TypePrimitive *type, Decl *deco, bool assignable)
-                : Type(type), TypeDeco(deco), Assignable(assignable) {}
+        public:
+            llvm::Value *Value;
+            bool IsRef;
+            inline explicit Symbol(llvm::Value* value, bool isRef) : Value(value), IsRef(isRef) {}
         };
 
-    private:
-        SymbolTable *_Parent = nullptr;
+        private : SymbolTable *_Parent = nullptr;
         arr<ptr<SymbolTable>> _Children;
         std::map<std::string, Symbol> _SymbolList;
 
@@ -44,21 +37,25 @@ namespace ast
             _Children.back()->_Parent = this;
             return _Children.back().get();
         }
-        inline bool AddSymbol(const std::string &name, TypePrimitive *type, Decl *deco)
+        inline bool TryAddSymbol(const std::string &name)
+        {
+            return _SymbolList.find(name) == _SymbolList.end();
+        }
+        inline bool AddSymbol(const std::string &name, Symbol sym)
         {
             // Name already exists
             if (_SymbolList.find(name) != _SymbolList.end())
                 return false;
-            _SymbolList.emplace(name, Symbol(type, deco, true));
+            _SymbolList.emplace(name, sym);
             return true;
         }
-        inline const Symbol* Search(const std::string& name)
+        inline std::optional<Symbol> Search(const std::string &name)
         {
             auto iter = _SymbolList.find(name);
             if (iter != _SymbolList.end())
-                return &iter->second;
+                return iter->second;
             if (!_Parent)
-                return nullptr;
+                return std::nullopt;
             return _Parent->Search(name);
         }
     };
