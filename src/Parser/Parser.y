@@ -12,7 +12,7 @@
 %right '='
 %left '<' '>' LE GE EQ NE
 %left '+' '-'
-%left '*' '/'
+%left '*' '/' '%'
 
 %%
 
@@ -65,6 +65,7 @@ Expression:
 | Expression '-' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB);           }
 | Expression '*' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL);           }
 | Expression '/' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV);           }
+| Expression '%' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MOD);           }
 ;
 
 Statement:

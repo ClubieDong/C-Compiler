@@ -34,7 +34,7 @@ struct  return Parser::STRUCT;
 (([0-9]+\.[0-9]+)|(\.[0-9]+)|([0-9]+\.))(e(\+|-)?[0-9]+)?  return Parser::CONSTFP;
 
 [ \t\n]                  // 跳过空白符
-[+\-*/<>=()\[\]\{\},;&]  return matched()[0]; // 单字符TOKEN
+[+\-*/<>=()\[\]\{\},;&%]  return matched()[0]; // 单字符TOKEN
 "<="                     return Parser::LE;
 ">="                     return Parser::GE;
 "=="                     return Parser::EQ;

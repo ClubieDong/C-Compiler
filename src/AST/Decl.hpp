@@ -170,6 +170,7 @@ namespace ast
             if (auto c = llvm::dyn_cast<llvm::ConstantInt>(size->Value))
             {
                 type = llvm::ArrayType::get(type, c->getSExtValue());
+                // type = llvm::PointerType::get(type, 0);
                 return _Type->TypeGen(syms, context, builder, type, false);
             }
             ErrorHandler::PrintError("Array size must be constant integer", _Type->GetLocation());
@@ -326,7 +327,20 @@ namespace ast
                                                      llvm::GlobalValue::LinkageTypes::PrivateLinkage,
                                                      llvm::Constant::getNullValue(type), name);
                 else
-                    value = builder.CreateAlloca(type, 0, name);
+                {
+                    auto parentFunc = builder.GetInsertBlock()->getParent();
+                    llvm::IRBuilder<> tempBuilder(&parentFunc->getEntryBlock(), parentFunc->getEntryBlock().begin());
+                    value = tempBuilder.CreateAlloca(type, 0, name);
+                }
+                if (type->isArrayTy())
+                {
+                    auto parentFunc = builder.GetInsertBlock()->getParent();
+                    llvm::IRBuilder<> tempBuilder(&parentFunc->getEntryBlock(), parentFunc->getEntryBlock().begin());
+                    auto ptrvalue = tempBuilder.CreateAlloca(type->getArrayElementType()->getPointerTo(), 0, name);
+                    value = builder.CreatePointerCast(value, ptrvalue->getType()->getPointerElementType());
+                    builder.CreateStore(value, ptrvalue);
+                    value = ptrvalue;
+                }
             }
             syms.AddSymbol(name, value);
             if (!_Init)

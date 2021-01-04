@@ -23,7 +23,9 @@ namespace ast
                 value = &p;
             else
             {
-                value = builder.CreateAlloca(p.getType(), 0, "");
+                auto parentFunc = builder.GetInsertBlock()->getParent();
+                llvm::IRBuilder<> tempBuilder(&parentFunc->getEntryBlock(), parentFunc->getEntryBlock().begin());
+                value = tempBuilder.CreateAlloca(p.getType(), 0, "");
                 builder.CreateStore(&p, value);
             }
             if (!syms.AddSymbol(name, value))

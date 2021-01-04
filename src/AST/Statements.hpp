@@ -108,7 +108,7 @@ namespace ast
             builder.CreateBr(mergeBB);
 
             builder.SetInsertPoint(elseBB);
-            if (!_Else->StmtGen(syms, context, builder))
+            if (_Else && !_Else->StmtGen(syms, context, builder))
                 return false;
             builder.CreateBr(mergeBB);
 
@@ -204,6 +204,7 @@ namespace ast
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {
             auto func = builder.GetInsertBlock()->getParent();
+
             if (!_Expr && func->getReturnType()->isVoidTy())
             {
                 builder.CreateRet(nullptr);
@@ -225,7 +226,11 @@ namespace ast
             retValue = Expression::CastLLVMType(*retValue, func->getReturnType(), false, _Location, builder);
             if (!retValue)
                 return false;
+
+            auto retBB = llvm::BasicBlock::Create(context, "return.after", func, 0);
             builder.CreateRet(retValue->Value);
+            
+            builder.SetInsertPoint(retBB);
             return true;
         }
     };
@@ -263,8 +268,9 @@ namespace ast
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {
             bool success = true;
+            auto child = syms.AddChild();
             for (auto &i : _StatementList)
-                if (!i->StmtGen(syms, context, builder))
+                if (!i->StmtGen(*child, context, builder))
                     success = false;
             return success;
         }

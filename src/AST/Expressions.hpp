@@ -338,6 +338,7 @@ namespace ast
             SUB,
             MUL,
             DIV,
+            MOD,
         };
 
     private:
@@ -346,7 +347,7 @@ namespace ast
 
         inline static bool IsAssign(BiOp op) { return ASSIGN <= op && op <= ASSIGN; }
         inline static bool IsRelOp(BiOp op) { return LESS <= op && op <= NOT_EQUAL; }
-        inline static bool IsNumOp(BiOp op) { return ADD <= op && op <= DIV; }
+        inline static bool IsNumOp(BiOp op) { return ADD <= op && op <= MOD; }
 
     public:
         inline explicit BiOpExpr(ptr<Base> &left, ptr<Base> &right, BiOp op)
@@ -355,7 +356,7 @@ namespace ast
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
             constexpr const char *ENUM_NAMES[] = {"ASSIGN", "LESS", "GREATER", "LESS_EQUAL", "GREATER_EQUAL",
-                                                  "EQUAL", "NOT_EQUAL", "ADD", "SUB", "MUL", "DIV"};
+                                                  "EQUAL", "NOT_EQUAL", "ADD", "SUB", "MUL", "DIV", "MOD"};
             os << hint << "BiOpExpr: " << ENUM_NAMES[_Op] << '\n';
             os << hint << "\tLeft: \n";
             _Left->Show(os, hint + "\t\t");
@@ -483,6 +484,8 @@ namespace ast
                     return SymbolTable::Symbol(builder.CreateMul(left->Value, right->Value), false);
                 case DIV:
                     return SymbolTable::Symbol(builder.CreateSDiv(left->Value, right->Value), false);
+                case MOD:
+                    return SymbolTable::Symbol(builder.CreateSRem(left->Value, right->Value), false);
                 default:
                     assert(false);
                 }
@@ -702,7 +705,7 @@ namespace ast
                 return std::nullopt;
             }
             // expr = Arr2Ptr(expr, builder);
-            auto value = builder.CreateGEP(expr->Value->getType(), expr->Value, std::vector<llvm::Value *>{index->Value});
+            auto value = builder.CreateGEP(expr->Value, std::vector<llvm::Value *>{index->Value});
             if (value->getType()->isArrayTy())
             {
                 auto eleTy = value->getType()->getArrayElementType();
