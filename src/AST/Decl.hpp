@@ -106,6 +106,22 @@ namespace ast
         {
             return type;
         }
+
+        inline llvm::FunctionType *FunctionTypeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                   llvm::IRBuilder<> &builder, llvm::Type *retTy)
+        {
+            std::vector<llvm::Type *> p;
+            for (auto &i : _ParamList)
+            {
+                auto t = i._Type->TypeGen(context);
+                t = i._Decl->TypeGen(syms, context, builder, t, false);
+                p.push_back(t);
+            }
+            auto *ft = llvm::FunctionType::get(retTy, p, false);
+            return ft;
+        }
+
+        bool SetParamName(SymbolTable &syms, llvm::Function *func, llvm::IRBuilder<> &builder);
     };
 
     class ArrayDecl : public Decl
@@ -156,6 +172,7 @@ namespace ast
                 type = llvm::ArrayType::get(type, c->getSExtValue());
                 return _Type->TypeGen(syms, context, builder, type, false);
             }
+            ErrorHandler::PrintError("Array size must be constant integer", _Type->GetLocation());
             return nullptr;
         }
     };
@@ -268,7 +285,7 @@ namespace ast
         inline Decl *GetVar() { return _Var.get(); }
 
         inline llvm::Value *CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
-                                    llvm::Module &mod, llvm::IRBuilder<> &builder, llvm::Type *type)
+                                    llvm::IRBuilder<> &builder, llvm::Type *type, llvm::Module *mod)
         {
             const auto &name = _Var->GetName();
             if (!syms.TryAddSymbol(name))
@@ -285,11 +302,17 @@ namespace ast
                 return nullptr;
             }
             type = _Var->TypeGen(syms, context, builder, type, false);
+            if (!type)
+                return nullptr;
             llvm::Value *value;
             if (auto func = _Var->GetFuncDecl())
             {
-                // TODO: Generate function
-                throw "Not implemented";
+                auto ft = func->FunctionTypeGen(syms, context, builder, type);
+                if (!ft)
+                    return nullptr;
+                auto *f = llvm::Function::Create(ft, llvm::Function::ExternalLinkage, name, mod);
+                syms.AddSymbol(name, f);
+                return f;
             }
             else
             {
@@ -298,11 +321,14 @@ namespace ast
                     ErrorHandler::PrintError("Void type is not allowed here", _Var->GetLocation());
                     return nullptr;
                 }
-                value = new llvm::GlobalVariable(mod, type, false,
-                                                 llvm::GlobalValue::LinkageTypes::PrivateLinkage,
-                                                 llvm::Constant::getNullValue(type), name);
+                if (mod)
+                    value = new llvm::GlobalVariable(*mod, type, false,
+                                                     llvm::GlobalValue::LinkageTypes::PrivateLinkage,
+                                                     llvm::Constant::getNullValue(type), name);
+                else
+                    value = builder.CreateAlloca(type, 0, name);
             }
-            syms.AddSymbol(_Var->GetName(), SymbolTable::Symbol(value, true));
+            syms.AddSymbol(name, value);
             if (!_Init)
                 return value;
             auto initValue = _Init->CodeGen(syms, context, builder);

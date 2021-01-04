@@ -27,15 +27,15 @@ namespace ast
             return SymbolTable::Symbol(value, false);
         }
 
-        // inline static opt<SymbolTable::Symbol> Arr2Ptr(opt<SymbolTable::Symbol> sym, llvm::IRBuilder<> &builder)
-        // {
-        //     if (!sym)
-        //         return std::nullopt;
-        //     if (!sym->Value->getType()->isArrayTy())
-        //         return sym;
-        //     sym->Value = builder.CreateBitCast(sym->Value, sym->Value->getType()->getArrayElementType());
-        //     return sym;
-        // }
+        inline static opt<SymbolTable::Symbol> Arr2Ptr(opt<SymbolTable::Symbol> sym, llvm::IRBuilder<> &builder)
+        {
+            if (!sym)
+                return std::nullopt;
+            if (!sym->Value->getType()->isArrayTy())
+                return sym;
+            sym->Value = builder.CreateBitCast(sym->Value, sym->Value->getType()->getArrayElementType()->getPointerTo());
+            return sym;
+        }
 
         inline static opt<SymbolTable::Symbol> CastLLVMType(SymbolTable::Symbol sym, llvm::Type *toType, bool toIsRef,
                                                             const ErrorHandler::Location &loc, llvm::IRBuilder<> &builder)
@@ -316,7 +316,7 @@ namespace ast
                 ErrorHandler::PrintError(ss.str(), GetLocation());
                 return std::nullopt;
             }
-            return SymbolTable::Symbol(value->Value, true);
+            return SymbolTable::Symbol(value, true);
         };
     };
 
@@ -627,7 +627,91 @@ namespace ast
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
         {
-            return std::nullopt;
+            auto funcExpr = _Func->CodeGen(syms, context, builder);
+            auto func = llvm::dyn_cast<llvm::Function>(funcExpr->Value);
+            if (!func)
+            {
+                ErrorHandler::PrintError("Only function is allowed to be called", _Func->GetLocation());
+                return std::nullopt;
+            }
+            if (func->arg_size() != _ArgList.size())
+            {
+                ErrorHandler::PrintError("The number of arguments does not match", _Func->GetLocation());
+                return std::nullopt;
+            }
+            std::vector<llvm::Value *> args;
+            for (unsigned int i = 0; i < _ArgList.size(); ++i)
+            {
+                auto arg = _ArgList[i]->CodeGen(syms, context, builder);
+                if (!arg)
+                    return std::nullopt;
+                arg = CastLLVMType(*arg, func->getArg(i)->getType(), false, _ArgList[i]->GetLocation(), builder);
+                if (!arg)
+                    return std::nullopt;
+                args.push_back(arg->Value);
+            }
+            return SymbolTable::Symbol(builder.CreateCall(func, args), false);
+        };
+    };
+
+    class IndexExpr : public Expression
+    {
+    private:
+        ptr<Expression> _Expr, _Index;
+
+    public:
+        inline explicit IndexExpr(ptr<Base> &expr, ptr<Base> &index)
+            : _Expr(to<Expression>(expr)), _Index(to<Expression>(index)) {}
+
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
+        {
+            os << hint << "IndexExpr: " << '\n';
+            os << hint << "\tExpr: \n";
+            _Expr->Show(os, hint + "\t\t");
+            os << hint << "\tIndex: \n";
+            _Index->Show(os, hint + "\t\t");
+        }
+
+        inline virtual const ErrorHandler::Location &GetLocation() const override { return _Expr->GetLocation(); }
+
+        // inline virtual bool Analyze(SymbolTable *syms)
+        // {
+        //     bool l = _Left->Analyze(syms);
+        //     bool r = _Right->Analyze(syms);
+        //     return l && r;
+        // }
+
+        inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
+                                                        llvm::IRBuilder<> &builder) override
+        {
+            opt<SymbolTable::Symbol> expr, index;
+            expr = _Expr->CodeGen(syms, context, builder);
+            index = _Index->CodeGen(syms, context, builder);
+            if (!expr || !index)
+                return std::nullopt;
+            expr = Dereference(expr, builder);
+            index = Dereference(index, builder);
+            if (!expr->Value->getType()->isArrayTy() && !expr->Value->getType()->isPointerTy())
+            {
+                ErrorHandler::PrintError("Operand must be array or pointer", _Expr->GetLocation());
+                return std::nullopt;
+            }
+            if (!index->Value->getType()->isIntegerTy())
+            {
+                ErrorHandler::PrintError("Operand must be integer", _Index->GetLocation());
+                return std::nullopt;
+            }
+            // expr = Arr2Ptr(expr, builder);
+            auto value = builder.CreateGEP(expr->Value->getType(), expr->Value, std::vector<llvm::Value *>{index->Value});
+            if (value->getType()->isArrayTy())
+            {
+                auto eleTy = value->getType()->getArrayElementType();
+                auto v = builder.CreateBitCast(value, llvm::PointerType::get(eleTy, 0));
+                return SymbolTable::Symbol(v, true);
+            }
+            if (value->getType()->isPointerTy())
+                return SymbolTable::Symbol(value, true);
+            assert(false);
         };
     };
 

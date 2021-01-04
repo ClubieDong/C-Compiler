@@ -8,7 +8,7 @@ class ErrorHandler
 public:
     struct Location
     {
-        unsigned int Row, ColStart, ColEnd;
+        unsigned int Row = 1, ColStart = 1, ColEnd = 1;
         inline explicit Location() = default;
         inline explicit Location(unsigned int row, unsigned int colStart, unsigned int colEnd)
             : Row(row), ColStart(colStart), ColEnd(colEnd) {}

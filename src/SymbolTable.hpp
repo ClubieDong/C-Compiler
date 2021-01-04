@@ -1,5 +1,25 @@
 #pragma once
 
+#include <llvm/ADT/APFloat.h>
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Utils.h>
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -22,12 +42,13 @@ namespace ast
         public:
             llvm::Value *Value;
             bool IsRef;
-            inline explicit Symbol(llvm::Value* value, bool isRef) : Value(value), IsRef(isRef) {}
+            inline explicit Symbol(llvm::Value *value, bool isRef) : Value(value), IsRef(isRef) {}
         };
 
-        private : SymbolTable *_Parent = nullptr;
+    private:
+        SymbolTable *_Parent = nullptr;
         arr<ptr<SymbolTable>> _Children;
-        std::map<std::string, Symbol> _SymbolList;
+        std::map<std::string, llvm::Value *> _SymbolList;
 
     public:
         inline SymbolTable *GetParent() { return _Parent; }
@@ -41,7 +62,7 @@ namespace ast
         {
             return _SymbolList.find(name) == _SymbolList.end();
         }
-        inline bool AddSymbol(const std::string &name, Symbol sym)
+        inline bool AddSymbol(const std::string &name, llvm::Value *sym)
         {
             // Name already exists
             if (_SymbolList.find(name) != _SymbolList.end())
@@ -49,13 +70,13 @@ namespace ast
             _SymbolList.emplace(name, sym);
             return true;
         }
-        inline std::optional<Symbol> Search(const std::string &name)
+        inline llvm::Value *Search(const std::string &name)
         {
             auto iter = _SymbolList.find(name);
             if (iter != _SymbolList.end())
                 return iter->second;
             if (!_Parent)
-                return std::nullopt;
+                return nullptr;
             return _Parent->Search(name);
         }
     };

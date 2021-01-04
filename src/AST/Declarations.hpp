@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sstream>
+#include <vector>
 #include "Base.hpp"
 #include "Expressions.hpp"
 #include "Statements.hpp"
@@ -70,7 +71,17 @@ namespace ast
             auto type = _Type->TypeGen(context);
             bool success = true;
             for (auto &i : _VarList)
-                if (!i->CodeGen(syms, context, mod, builder, type))
+                if (!i->CodeGen(syms, context, builder, type, &mod))
+                    success = false;
+            return success;
+        }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            auto type = _Type->TypeGen(context);
+            bool success = true;
+            for (auto &i : _VarList)
+                if (!i->CodeGen(syms, context, builder, type, nullptr))
                     success = false;
             return success;
         }
@@ -119,7 +130,44 @@ namespace ast
         inline virtual bool CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                     llvm::Module &mod, llvm::IRBuilder<> &builder) override
         {
-            // TODO
+            auto name = _FuncDecl->GetName();
+            if (name == "main")
+                name = "__main__";
+            // TODO: Check main function return type and parameters
+            if (!syms.TryAddSymbol(name))
+            {
+                std::ostringstream ss;
+                ss << "Redeclaration of '" << name << '\'';
+                ErrorHandler::PrintError(ss.str(), _FuncDecl->GetLocation());
+                return false;
+            }
+            auto retTy = _Type->TypeGen(context);
+            retTy = _FuncDecl->TypeGen(syms, context, builder, retTy, false);
+            auto func = _FuncDecl->GetFuncDecl();
+            assert(func);
+            auto ft = func->FunctionTypeGen(syms, context, builder, retTy);
+            if (!ft)
+                return false;
+            auto *f = llvm::Function::Create(ft, llvm::Function::ExternalLinkage, name, mod);
+            syms.AddSymbol(name, f);
+            auto *entryBB = llvm::BasicBlock::Create(context, "entry", f);
+            llvm::IRBuilder<> bbBuilder(context);
+            bbBuilder.SetInsertPoint(entryBB);
+            auto child = syms.AddChild();
+            if (!func->SetParamName(*child, f, bbBuilder))
+                return false;
+            if (!_Body->StmtGen(*child, context, bbBuilder))
+                return false;
+            if (retTy->isVoidTy())
+                bbBuilder.CreateRet(nullptr);
+            else
+                bbBuilder.CreateRet(llvm::Constant::getNullValue(retTy));
+            return true;
+        }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            ErrorHandler::PrintError("Nested function is not allowed", _FuncDecl->GetLocation());
             return false;
         }
     };
@@ -156,7 +204,7 @@ namespace ast
         {
             SymbolTable syms;
             llvm::FunctionType *entryFT = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
-            llvm::Function *entryF = llvm::Function::Create(entryFT, llvm::Function::ExternalLinkage, "entry", &mod);
+            llvm::Function *entryF = llvm::Function::Create(entryFT, llvm::Function::ExternalLinkage, "main", &mod);
             llvm::BasicBlock *entryBB = llvm::BasicBlock::Create(context, "entry", entryF);
             llvm::IRBuilder<> builder(context);
             builder.SetInsertPoint(entryBB);
@@ -166,10 +214,22 @@ namespace ast
                 if (!i->CodeGen(syms, context, mod, builder))
                     success = false;
 
+            auto func = mod.getFunction("__main__");
+            if (!func)
+            {
+                ErrorHandler::PrintError("Expect main function", ErrorHandler::Location());
+                return false;
+            }
+            std::vector<llvm::Value *> args;
+            for (unsigned int i = 0; i < func->arg_size(); ++i)
+            {
+                auto t = func->getArg(i)->getType();
+                auto c = llvm::Constant::getNullValue(t);
+                args.push_back(c);
+            }
+            builder.CreateCall(func, args);
             builder.CreateRet(nullptr);
             return success;
-
-            // TODO: should I put 'entry' into symbol table?
         }
     };
 } // namespace ast

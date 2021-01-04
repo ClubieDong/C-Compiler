@@ -40,6 +40,7 @@ PrimaryExpression:
 PostExpression:
   PrimaryExpression                  { $$ = std::move($1);                                            }
 | PostExpression '(' OptArgList ')'  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1); }
+| PostExpression '[' Expression ']'  { $$ = std::make_unique<ast::IndexExpr>($1, $3);                 }
 | PostExpression '(' error ')'       { $$ = nullptr;                                                  }
 ;
 
@@ -67,17 +68,17 @@ Expression:
 ;
 
 Statement:
-  ';'                                             { $$ = std::make_unique<ast::ExprStmt>();         }
-| error ';'                                       { $$ = nullptr;                                   }
-| Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);       }
-| Declaration                                     { $$ = std::move($1);                             }
-| IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);     }
-| IF '(' Expression ')' Statement ELSE Statement  { $$ = std::make_unique<ast::IfStmt>($3, $5, $7); }
-| WHILE '(' Expression ')' Statement              { $$ = std::make_unique<ast::WhileStmt>($3, $5);  }
-| RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>();       }
-| RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2);     }
-| '{' StatementList '}'                           { $$ = std::move($2);                             }
-| '{' error '}'                                   { $$ = nullptr;                                   }
+  ';'                                             { $$ = std::make_unique<ast::ExprStmt>();                              }
+| error ';'                                       { $$ = nullptr;                                                        }
+| Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);                            }
+| Declaration                                     { $$ = std::move($1);                                                  }
+| IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);                          }
+| IF '(' Expression ')' Statement ELSE Statement  { $$ = std::make_unique<ast::IfStmt>($3, $5, $7);                      }
+| WHILE '(' Expression ')' Statement              { $$ = std::make_unique<ast::WhileStmt>($3, $5);                       }
+| RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>(_Scanner->GetLocation());     }
+| RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2, _Scanner->GetLocation()); }
+| '{' StatementList '}'                           { $$ = std::move($2);                                                  }
+| '{' error '}'                                   { $$ = nullptr;                                                        }
 ;
 
 StatementList:

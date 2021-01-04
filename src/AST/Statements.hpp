@@ -7,6 +7,11 @@ namespace ast
 {
     class Statement : public Base
     {
+    public:
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder)
+        {
+            return true;
+        }
     };
 
     class ExprStmt : public Statement
@@ -32,6 +37,15 @@ namespace ast
         //         return _Expr->Analyze(syms);
         //     return true;
         // }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            if (!_Expr)
+                return true;
+            if (_Expr->CodeGen(syms, context, builder))
+                return true;
+            return false;
+        }
     };
 
     class IfStmt : public Statement
@@ -71,6 +85,36 @@ namespace ast
         //     }
         //     return c && t;
         // }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            auto func = builder.GetInsertBlock()->getParent();
+
+            auto thenBB = llvm::BasicBlock::Create(context, "if.then", func, 0);
+            auto elseBB = llvm::BasicBlock::Create(context, "if.else", func, 0);
+            auto mergeBB = llvm::BasicBlock::Create(context, "if.merge", func, 0);
+
+            auto condValue = _CondExpr->CodeGen(syms, context, builder);
+            if (!condValue)
+                return false;
+            condValue = Expression::CastLLVMType(*condValue, llvm::Type::getInt1Ty(context), false, _CondExpr->GetLocation(), builder);
+            if (!condValue)
+                return false;
+            builder.CreateCondBr(condValue->Value, thenBB, elseBB);
+
+            builder.SetInsertPoint(thenBB);
+            if (!_Then->StmtGen(syms, context, builder))
+                return false;
+            builder.CreateBr(mergeBB);
+
+            builder.SetInsertPoint(elseBB);
+            if (!_Else->StmtGen(syms, context, builder))
+                return false;
+            builder.CreateBr(mergeBB);
+
+            builder.SetInsertPoint(mergeBB);
+            return true;
+        }
     };
 
     class WhileStmt : public Statement
@@ -98,16 +142,46 @@ namespace ast
         //     bool b = _Body->Analyze(syms);
         //     return c && b;
         // }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            auto func = builder.GetInsertBlock()->getParent();
+
+            auto condBB = llvm::BasicBlock::Create(context, "while.cond", func, 0);
+            auto bodyBB = llvm::BasicBlock::Create(context, "while.body", func, 0);
+            auto mergeBB = llvm::BasicBlock::Create(context, "while.merge", func, 0);
+
+            builder.CreateBr(condBB);
+
+            builder.SetInsertPoint(condBB);
+            auto condValue = _CondExpr->CodeGen(syms, context, builder);
+            if (!condValue)
+                return false;
+            condValue = Expression::CastLLVMType(*condValue, llvm::Type::getInt1Ty(context), false, _CondExpr->GetLocation(), builder);
+            if (!condValue)
+                return false;
+            builder.CreateCondBr(condValue->Value, bodyBB, mergeBB);
+
+            builder.SetInsertPoint(bodyBB);
+            if (!_Body->StmtGen(syms, context, builder))
+                return false;
+            builder.CreateBr(condBB);
+
+            builder.SetInsertPoint(mergeBB);
+            return true;
+        }
     };
 
     class ReturnStmt : public Statement
     {
     private:
         ptr<Expression> _Expr;
+        ErrorHandler::Location _Location;
 
     public:
-        inline explicit ReturnStmt() = default;
-        inline explicit ReturnStmt(ptr<Base> &expr) : _Expr(to<Expression>(expr)) {}
+        inline explicit ReturnStmt(const ErrorHandler::Location &loc) : _Location(loc){};
+        inline explicit ReturnStmt(ptr<Base> &expr, const ErrorHandler::Location &loc)
+            : _Expr(to<Expression>(expr)), _Location(loc) {}
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
@@ -126,6 +200,34 @@ namespace ast
         //         return _Expr->Analyze(syms);
         //     return true;
         // }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            auto func = builder.GetInsertBlock()->getParent();
+            if (!_Expr && func->getReturnType()->isVoidTy())
+            {
+                builder.CreateRet(nullptr);
+                return true;
+            }
+            if (_Expr && func->getReturnType()->isVoidTy())
+            {
+                ErrorHandler::PrintError("Return type should be void", _Location);
+                return false;
+            }
+            if (!_Expr && !func->getReturnType()->isVoidTy())
+            {
+                ErrorHandler::PrintError("Return type should not be void", _Location);
+                return false;
+            }
+            auto retValue = _Expr->CodeGen(syms, context, builder);
+            if (!retValue)
+                return false;
+            retValue = Expression::CastLLVMType(*retValue, func->getReturnType(), false, _Location, builder);
+            if (!retValue)
+                return false;
+            builder.CreateRet(retValue->Value);
+            return true;
+        }
     };
 
     class StatementList : public Statement
@@ -157,5 +259,14 @@ namespace ast
         //             success = false;
         //     return success;
         // }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            bool success = true;
+            for (auto &i : _StatementList)
+                if (!i->StmtGen(syms, context, builder))
+                    success = false;
+            return success;
+        }
     };
 } // namespace ast
