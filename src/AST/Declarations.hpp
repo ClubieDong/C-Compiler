@@ -229,6 +229,8 @@ namespace ast
             }
             builder.CreateCall(func, args);
             builder.CreateRet(nullptr);
+            // if (success)
+            //     syms.Show(std::cout, "");
             return success;
         }
     };

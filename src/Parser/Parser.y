@@ -5,11 +5,13 @@
 %stype std::unique_ptr<ast::Base>
 
 %token VOID BOOL CHAR SHORT INT LONG FLOAT DOUBLE
-%token TRUE FALSE RETURN IF ELSE WHILE STRUCT
+%token TRUE FALSE RETURN IF ELSE WHILE STRUCT FOR INC DEC
 %token ID_TEXT
 %token CONSTINT CONSTINT_BIN CONSTINT_OCT CONSTINT_HEX CONSTFP
 
 %right '='
+%left OR
+%left AND
 %left '<' '>' LE GE EQ NE
 %left '+' '-'
 %left '*' '/' '%'
@@ -27,10 +29,10 @@ ID:
 PrimaryExpression:
   TRUE                { $$ = std::make_unique<ast::Constant>(true, _Scanner->GetLocation());                                         }
 | FALSE               { $$ = std::make_unique<ast::Constant>(false, _Scanner->GetLocation());                                        }
-| CONSTINT            { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched()), _Scanner->GetLocation());              }
-| CONSTINT_BIN        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 2), _Scanner->GetLocation());  }
-| CONSTINT_OCT        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 8), _Scanner->GetLocation());  }
-| CONSTINT_HEX        { $$ = std::make_unique<ast::Constant>(std::stoll(_Scanner->matched(), nullptr, 16), _Scanner->GetLocation()); }
+| CONSTINT            { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched()), _Scanner->GetLocation());              }
+| CONSTINT_BIN        { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched(), nullptr, 2), _Scanner->GetLocation());  }
+| CONSTINT_OCT        { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched(), nullptr, 8), _Scanner->GetLocation());  }
+| CONSTINT_HEX        { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched(), nullptr, 16), _Scanner->GetLocation()); }
 | CONSTFP             { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()), _Scanner->GetLocation());               }
 | ID                  { $$ = std::make_unique<ast::Variable>($1);                                                                    }
 | '(' Expression ')'  { $$ = std::move($2);                                                                                          }
@@ -38,18 +40,22 @@ PrimaryExpression:
 ;
 
 PostExpression:
-  PrimaryExpression                  { $$ = std::move($1);                                            }
-| PostExpression '(' OptArgList ')'  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1); }
-| PostExpression '[' Expression ']'  { $$ = std::make_unique<ast::IndexExpr>($1, $3);                 }
-| PostExpression '(' error ')'       { $$ = nullptr;                                                  }
+  PrimaryExpression                  { $$ = std::move($1);                                                }
+| PostExpression '(' OptArgList ')'  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1);     }
+| PostExpression '[' Expression ']'  { $$ = std::make_unique<ast::IndexExpr>($1, $3);                     }
+| PostExpression INC                 { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::INC_POST); }
+| PostExpression DEC                 { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::DEC_POST); }
+| PostExpression '(' error ')'       { $$ = nullptr;                                                      }
 ;
 
 PreExpression:
-  PostExpression     { $$ = std::move($1);                                           }
-| '+' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::POS); }
-| '-' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NEG); }
-| '*' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::DEREF); }
-| '&' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::ADDR); }
+  PostExpression     { $$ = std::move($1);                                               }
+| '+' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::POS);     }
+| '-' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NEG);     }
+| '*' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::DEREF);   }
+| '&' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::ADDR);    }
+| INC PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::INC_PRE); }
+| DEC PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::DEC_PRE); }
 ;
 
 Expression:
@@ -69,17 +75,18 @@ Expression:
 ;
 
 Statement:
-  ';'                                             { $$ = std::make_unique<ast::ExprStmt>();                              }
-| error ';'                                       { $$ = nullptr;                                                        }
-| Expression ';'                                  { $$ = std::make_unique<ast::ExprStmt>($1);                            }
-| Declaration                                     { $$ = std::move($1);                                                  }
-| IF '(' Expression ')' Statement                 { $$ = std::make_unique<ast::IfStmt>($3, $5);                          }
-| IF '(' Expression ')' Statement ELSE Statement  { $$ = std::make_unique<ast::IfStmt>($3, $5, $7);                      }
-| WHILE '(' Expression ')' Statement              { $$ = std::make_unique<ast::WhileStmt>($3, $5);                       }
-| RETURN ';'                                      { $$ = std::make_unique<ast::ReturnStmt>(_Scanner->GetLocation());     }
-| RETURN Expression ';'                           { $$ = std::make_unique<ast::ReturnStmt>($2, _Scanner->GetLocation()); }
-| '{' StatementList '}'                           { $$ = std::move($2);                                                  }
-| '{' error '}'                                   { $$ = nullptr;                                                        }
+  ';'                                                       { $$ = std::make_unique<ast::ExprStmt>();                              }
+| error ';'                                                 { $$ = nullptr;                                                        }
+| Expression ';'                                            { $$ = std::make_unique<ast::ExprStmt>($1);                            }
+| Declaration                                               { $$ = std::move($1);                                                  }
+| IF '(' Expression ')' Statement                           { $$ = std::make_unique<ast::IfStmt>($3, $5);                          }
+| IF '(' Expression ')' Statement ELSE Statement            { $$ = std::make_unique<ast::IfStmt>($3, $5, $7);                      }
+| WHILE '(' Expression ')' Statement                        { $$ = std::make_unique<ast::WhileStmt>($3, $5);                       }
+| FOR '(' Statement Expression ';'Expression ')' Statement  { $$ = std::make_unique<ast::ForStmt>($3, $4, $6, $8);                 }
+| RETURN ';'                                                { $$ = std::make_unique<ast::ReturnStmt>(_Scanner->GetLocation());     }
+| RETURN Expression ';'                                     { $$ = std::make_unique<ast::ReturnStmt>($2, _Scanner->GetLocation()); }
+| '{' StatementList '}'                                     { $$ = std::move($2);                                                  }
+| '{' error '}'                                             { $$ = nullptr;                                                        }
 ;
 
 StatementList:

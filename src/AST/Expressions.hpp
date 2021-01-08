@@ -222,13 +222,13 @@ namespace ast
     class Constant : public Expression
     {
     private:
-        std::variant<bool, long long, double> _Value;
+        std::variant<bool, int, double> _Value;
         ErrorHandler::Location _Location;
 
     public:
         inline explicit Constant(bool value, const ErrorHandler::Location &loc)
             : _Value(value), _Location(loc) {}
-        inline explicit Constant(long long value, const ErrorHandler::Location &loc)
+        inline explicit Constant(int value, const ErrorHandler::Location &loc)
             : _Value(value), _Location(loc) {}
         inline explicit Constant(double value, const ErrorHandler::Location &loc)
             : _Value(value), _Location(loc) {}
@@ -239,7 +239,7 @@ namespace ast
         {
             if (auto pv = std::get_if<bool>(&_Value))
                 os << hint << "Constant: " << (*pv ? "true" : "false") << '\n';
-            if (auto pv = std::get_if<long long>(&_Value))
+            if (auto pv = std::get_if<int>(&_Value))
                 os << hint << "Constant: " << *pv << '\n';
             else if (auto pv = std::get_if<double>(&_Value))
                 os << hint << "Constant: " << *pv << '\n';
@@ -258,10 +258,10 @@ namespace ast
                 auto type = llvm::Type::getInt1Ty(context);
                 value = llvm::ConstantInt::get(type, llvm::APInt(1, *pv, false));
             }
-            else if (auto pv = std::get_if<long long>(&_Value))
+            else if (auto pv = std::get_if<int>(&_Value))
             {
-                auto type = llvm::Type::getInt64Ty(context);
-                value = llvm::ConstantInt::get(type, llvm::APInt(64, *pv, true));
+                auto type = llvm::Type::getInt32Ty(context);
+                value = llvm::ConstantInt::get(type, llvm::APInt(32, *pv, true));
             }
             else if (auto pv = std::get_if<double>(&_Value))
             {
@@ -502,7 +502,11 @@ namespace ast
             POS,
             NEG,
             DEREF,
-            ADDR
+            ADDR,
+            INC_POST,
+            DEC_POST,
+            INC_PRE,
+            DEC_PRE
         };
 
     private:
@@ -515,7 +519,8 @@ namespace ast
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            constexpr const char *ENUM_NAMES[] = {"NEG", "POS", "DEREF", "ADDR"};
+            constexpr const char *ENUM_NAMES[] = {"NEG", "POS", "DEREF", "ADDR",
+                                                  "INC_POST", "DEC_POST", "INC_PRE", "DEC_PRE"};
             os << hint << "UnOpExpr: " << ENUM_NAMES[_Op] << '\n';
             _Operand->Show(os, hint + '\t');
         }
@@ -581,6 +586,15 @@ namespace ast
                     return std::nullopt;
                 }
                 return SymbolTable::Symbol(value->Value, false);
+            }
+            if (INC_POST <= _Op && _Op <= DEC_PRE)
+            {
+                if (!value->IsRef)
+                {
+                    ErrorHandler::PrintError("Expression must be an lvalue", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                return std::nullopt;
             }
             return std::nullopt;
         };

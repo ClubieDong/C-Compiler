@@ -172,6 +172,72 @@ namespace ast
         }
     };
 
+    class ForStmt : public Statement
+    {
+    private:
+        ptr<Statement> _Init;
+        ptr<Expression> _Cond;
+        ptr<Expression> _Incre;
+        ptr<Statement> _Body;
+
+    public:
+        inline explicit ForStmt(ptr<Base> &init, ptr<Base> &cond, ptr<Base> &incre, ptr<Base> &body)
+            : _Init(to<Statement>(init)), _Cond(to<Expression>(cond)),
+              _Incre(to<Expression>(incre)), _Body(to<Statement>(body)) {}
+
+        inline virtual void Show(std::ostream &os, const std::string &hint) const override
+        {
+            os << hint << "ForStmt: \n";
+            os << hint << "\tInit statement: \n";
+            _Init->Show(os, hint + "\t\t");
+            os << hint << "\tCondition: \n";
+            _Cond->Show(os, hint + "\t\t");
+            os << hint << "\tIncrement statement: \n";
+            _Incre->Show(os, hint + "\t\t");
+            os << hint << "\tLoop body: \n";
+            _Body->Show(os, hint + "\t\t");
+        }
+
+        // inline virtual bool Analyze(SymbolTable *syms)
+        // {
+        //     bool c = _CondExpr->Analyze(syms);
+        //     bool b = _Body->Analyze(syms);
+        //     return c && b;
+        // }
+
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
+        {
+            auto func = builder.GetInsertBlock()->getParent();
+
+            auto condBB = llvm::BasicBlock::Create(context, "for.cond", func, 0);
+            auto bodyBB = llvm::BasicBlock::Create(context, "for.body", func, 0);
+            auto mergeBB = llvm::BasicBlock::Create(context, "for.merge", func, 0);
+
+            if (!_Init->StmtGen(syms, context, builder))
+                return false;
+            builder.CreateBr(condBB);
+
+            builder.SetInsertPoint(condBB);
+            auto condValue = _Cond->CodeGen(syms, context, builder);
+            if (!condValue)
+                return false;
+            condValue = Expression::CastLLVMType(*condValue, llvm::Type::getInt1Ty(context), false, _Cond->GetLocation(), builder);
+            if (!condValue)
+                return false;
+            builder.CreateCondBr(condValue->Value, bodyBB, mergeBB);
+
+            builder.SetInsertPoint(bodyBB);
+            if (!_Body->StmtGen(syms, context, builder))
+                return false;
+            if (!_Incre->CodeGen(syms, context, builder))
+                return false;
+            builder.CreateBr(condBB);
+
+            builder.SetInsertPoint(mergeBB);
+            return true;
+        }
+    };
+
     class ReturnStmt : public Statement
     {
     private:
@@ -229,7 +295,7 @@ namespace ast
 
             auto retBB = llvm::BasicBlock::Create(context, "return.after", func, 0);
             builder.CreateRet(retValue->Value);
-            
+
             builder.SetInsertPoint(retBB);
             return true;
         }
@@ -241,7 +307,10 @@ namespace ast
         arr<ptr<Statement>> _StatementList;
 
     public:
-        inline void AddStmt(ptr<Base> &stmt) { _StatementList.push_back(to<Statement>(stmt)); }
+        inline void AddStmt(ptr<Base> &stmt)
+        {
+            _StatementList.push_back(to<Statement>(stmt));
+        }
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {

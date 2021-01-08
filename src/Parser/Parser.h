@@ -30,10 +30,11 @@ private:
 public:
     // TODO
     inline static constexpr const char *TOKEN_NAMES[] = {"void", "bool", "char", "short", "int", "long",
-                                                         "float", "double", "true", "false", "return", 
-                                                         "if", "else", "while", "struct", "ID", "DecInt", 
-                                                         "BinInt", "OctInt", "HexInt", "Float", "PTR", 
-                                                         "ARR", "<=", ">=", "==", "!="};
+                                                         "float", "double", "true", "false", "return",
+                                                         "if", "else", "while", "struct", "for", "++", "--",
+                                                         "ID", "DecInt",
+                                                         "BinInt", "OctInt", "HexInt", "Float", "||", "&&",
+                                                         "<=", ">=", "==", "!="};
     inline static constexpr unsigned int TOKEN_COUNT = sizeof(TOKEN_NAMES) / sizeof(*TOKEN_NAMES);
 
     inline Parser(Scanner &scanner) : _Scanner(&scanner) {}
