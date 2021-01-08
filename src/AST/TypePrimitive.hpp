@@ -83,7 +83,8 @@ namespace ast
 
         inline virtual llvm::Type *TypeGen(llvm::LLVMContext &context) override
         {
-            // TODO
+            // I wanted to implement custom class/struct
+            // but time is limited
             return nullptr;
         }
     };

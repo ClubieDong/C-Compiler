@@ -80,22 +80,6 @@ namespace ast
                 return nullptr;
             return _Parent->Search(name);
         }
-
-        inline void Show(std::ostream &os, const std::string &hint)
-        {
-            if (!_SymbolList.empty())
-            {
-                os << hint << std::setw(10) << "Name" << '\n';
-                for (auto &i : _SymbolList)
-                {
-                    os << hint << std::setw(10) << i.first << '\n';
-                    // TODO
-                }
-                os << "\n\n";
-            }
-            for (auto &i : _Children)
-                i->Show(os, hint + '\t');
-        }
     };
 
 } // namespace ast

@@ -41,30 +41,6 @@ namespace ast
             }
         }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool success = true;
-        //     if (!_Type->Analyze(syms))
-        //         success = false;
-        //     for (auto &i : _VarList)
-        //     {
-        //         auto var = i->GetVar();
-        //         if (!i->Analyze(syms))
-        //         {
-        //             success = false;
-        //             continue;
-        //         }
-        //         if (!syms->AddSymbol(var->GetName(), _Type.get(), var))
-        //         {
-        //             std::ostringstream ss;
-        //             ss << "Redeclaration of '" << var->GetName() << '\'';
-        //             ErrorHandler::PrintError(ss.str(), var->GetLocation());
-        //             success = false;
-        //         }
-        //     }
-        //     return success;
-        // }
-
         inline virtual bool CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                     llvm::Module &mod, llvm::IRBuilder<> &builder) override
         {
@@ -109,31 +85,14 @@ namespace ast
             _Body->Show(os, hint + "\t\t");
         }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool success = true;
-        //     if (!syms->AddSymbol(_FuncDecl->GetName(), _Type.get(), _FuncDecl.get()))
-        //     {
-        //         std::ostringstream ss;
-        //         ss << "Redeclaration of '" << _FuncDecl->GetName() << '\'';
-        //         ErrorHandler::PrintError(ss.str(), _FuncDecl->GetLocation());
-        //         success = false;
-        //     }
-        //     auto child = syms->AddChild();
-        //     if (!_FuncDecl->Analyze(child))
-        //         success = false;
-        //     if (!_Body->Analyze(child))
-        //         success = false;
-        //     return success;
-        // }
-
         inline virtual bool CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                     llvm::Module &mod, llvm::IRBuilder<> &builder) override
         {
             auto name = _FuncDecl->GetName();
             if (name == "main")
                 name = "__main__";
-            // TODO: Check main function return type and parameters
+            // TODO: Check return type and parameters of main function
+            // but it seems to work well with arbitary return type and parameters of main function
             if (!syms.TryAddSymbol(name))
             {
                 std::ostringstream ss;
@@ -191,15 +150,6 @@ namespace ast
             }
         }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool success = true;
-        //     for (auto &i : _DeclList)
-        //         if (!i->Analyze(syms))
-        //             success = false;
-        //     return success;
-        // }
-
         inline bool CodeGen(llvm::LLVMContext &context, llvm::Module &mod)
         {
             SymbolTable syms;
@@ -229,8 +179,6 @@ namespace ast
             }
             builder.CreateCall(func, args);
             builder.CreateRet(nullptr);
-            // if (success)
-            //     syms.Show(std::cout, "");
             return success;
         }
     };

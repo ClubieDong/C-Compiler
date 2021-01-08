@@ -14,15 +14,11 @@ public:
             : Row(row), ColStart(colStart), ColEnd(colEnd) {}
     };
 
-    static void PrintError(const std::string &msg, const Location &loc)
+    inline static void PrintError(const std::string &msg, const Location &loc, bool isWarning = false)
     {
         std::cerr << loc.Row << ':' << loc.ColStart << '-' << loc.ColEnd << '\t';
-        std::cerr << "Error: " << msg << '\n';
+        std::cerr << (isWarning ? "Warning" : "Error") << ": " << msg << '\n';
     }
 
-    static void PrintWarning(const std::string &msg, const Location &loc)
-    {
-        std::cerr << loc.Row << ':' << loc.ColStart << '-' << loc.ColEnd << '\t';
-        std::cerr << "Warning: " << msg << '\n';
-    }
+    inline static void PrintWarning(const std::string &msg, const Location &loc) { PrintError(msg, loc, true); }
 };

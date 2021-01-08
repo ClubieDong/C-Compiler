@@ -49,7 +49,6 @@ namespace ast
         virtual ~Base() = default;
 
         inline virtual void Show(std::ostream &os = std::cout, const std::string &hint = "") const {}
-        // inline virtual bool Analyze(SymbolTable *syms) { return true; }
     };
 
     class ID : public Base

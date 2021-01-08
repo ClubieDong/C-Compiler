@@ -8,10 +8,7 @@ namespace ast
     class Statement : public Base
     {
     public:
-        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder)
-        {
-            return true;
-        }
+        inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) = 0;
     };
 
     class ExprStmt : public Statement
@@ -30,13 +27,6 @@ namespace ast
             else
                 os << hint << "Empty expression statement" << '\n';
         }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     if (_Expr)
-        //         return _Expr->Analyze(syms);
-        //     return true;
-        // }
 
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {
@@ -73,18 +63,6 @@ namespace ast
                 _Else->Show(os, hint + "\t\t");
             }
         }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool c = _CondExpr->Analyze(syms);
-        //     bool t = _Then->Analyze(syms);
-        //     if (_Else)
-        //     {
-        //         bool e = _Else->Analyze(syms);
-        //         return c && t && e;
-        //     }
-        //     return c && t;
-        // }
 
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {
@@ -135,13 +113,6 @@ namespace ast
             os << hint << "\tLoop body: \n";
             _Body->Show(os, hint + "\t\t");
         }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool c = _CondExpr->Analyze(syms);
-        //     bool b = _Body->Analyze(syms);
-        //     return c && b;
-        // }
 
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {
@@ -198,13 +169,6 @@ namespace ast
             _Body->Show(os, hint + "\t\t");
         }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool c = _CondExpr->Analyze(syms);
-        //     bool b = _Body->Analyze(syms);
-        //     return c && b;
-        // }
-
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {
             auto func = builder.GetInsertBlock()->getParent();
@@ -260,20 +224,15 @@ namespace ast
                 os << hint << "ReturnStmt\n";
         }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     if (_Expr)
-        //         return _Expr->Analyze(syms);
-        //     return true;
-        // }
-
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {
             auto func = builder.GetInsertBlock()->getParent();
 
             if (!_Expr && func->getReturnType()->isVoidTy())
             {
+                auto retBB = llvm::BasicBlock::Create(context, "return.after", func, 0);
                 builder.CreateRet(nullptr);
+                builder.SetInsertPoint(retBB);
                 return true;
             }
             if (_Expr && func->getReturnType()->isVoidTy())
@@ -295,7 +254,6 @@ namespace ast
 
             auto retBB = llvm::BasicBlock::Create(context, "return.after", func, 0);
             builder.CreateRet(retValue->Value);
-
             builder.SetInsertPoint(retBB);
             return true;
         }
@@ -323,16 +281,6 @@ namespace ast
                     stmt->Show(os, hint + '\t');
             }
         }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     auto child = syms->AddChild();
-        //     bool success = true;
-        //     for (auto& i : _StatementList)
-        //         if (!i->Analyze(child))
-        //             success = false;
-        //     return success;
-        // }
 
         inline virtual bool StmtGen(SymbolTable &syms, llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
         {

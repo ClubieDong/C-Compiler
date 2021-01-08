@@ -2,6 +2,12 @@
 
 std::vector<int> Parser::ValidTokens()
 {
+    // The author of bisonc++ put his name and email
+    // in a variable at line #57 of parse.cc, which is never used, causing
+    // clang to emit an annoying `unused variable` warning everytime I compile
+    // The following line solves the problem
+    std::ignore = author;
+
     auto sr = s_state[state_()];
     auto last = sr + sr->d_lastIdx;
     std::set<int> set;

@@ -83,20 +83,6 @@ namespace ast
             }
         }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool success = true;
-        //     for (auto &[type, decl] : _ParamList)
-        //         if (!syms->AddSymbol(decl->GetName(), type.get(), decl.get()))
-        //         {
-        //             std::ostringstream ss;
-        //             ss << "Redeclaration of '" << decl->GetName() << '\'';
-        //             ErrorHandler::PrintError(ss.str(), decl->GetLocation());
-        //             success = false;
-        //         }
-        //     return success;
-        // }
-
         inline virtual std::string GetName() const override { return _Name->GetName(); };
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Name->GetLocation(); }
         inline virtual FuncDecl *GetFuncDecl() override { return this; }
@@ -147,11 +133,6 @@ namespace ast
             _Type->Show(os, hint + "\t\t");
         }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     return _Type->Analyze(syms);
-        // }
-
         inline virtual std::string GetName() const override { return _Type->GetName(); };
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Type->GetLocation(); }
         inline virtual FuncDecl *GetFuncDecl() override { return _Type->GetFuncDecl(); }
@@ -170,7 +151,6 @@ namespace ast
             if (auto c = llvm::dyn_cast<llvm::ConstantInt>(size->Value))
             {
                 type = llvm::ArrayType::get(type, c->getSExtValue());
-                // type = llvm::PointerType::get(type, 0);
                 return _Type->TypeGen(syms, context, builder, type, false);
             }
             ErrorHandler::PrintError("Array size must be constant integer", _Type->GetLocation());
@@ -191,11 +171,6 @@ namespace ast
             os << hint << "Pointer: \n";
             _Type->Show(os, hint + '\t');
         }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     return _Type->Analyze(syms);
-        // }
 
         inline virtual std::string GetName() const override { return _Type->GetName(); };
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Type->GetLocation(); }
@@ -227,11 +202,6 @@ namespace ast
             os << hint << "Reference: \n";
             _Type->Show(os, hint + '\t');
         }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     return _Type->Analyze(syms);
-        // }
 
         inline virtual std::string GetName() const override { return _Type->GetName(); };
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Type->GetLocation(); }
@@ -272,16 +242,6 @@ namespace ast
                 _Init->Show(os, hint + "\t\t");
             }
         }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool success = true;
-        //     if (!_Var->Analyze(syms))
-        //         success = false;
-        //     if (_Init && !_Init->Analyze(syms))
-        //         success = false;
-        //     return success;
-        // }
 
         inline Decl *GetVar() { return _Var.get(); }
 

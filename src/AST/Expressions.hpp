@@ -12,10 +12,7 @@ namespace ast
     public:
         inline virtual const ErrorHandler::Location &GetLocation() const = 0;
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
-                                                        llvm::IRBuilder<> &builder)
-        {
-            return std::nullopt;
-        };
+                                                        llvm::IRBuilder<> &builder) = 0;
 
         inline static opt<SymbolTable::Symbol> Dereference(opt<SymbolTable::Symbol> sym, llvm::IRBuilder<> &builder)
         {
@@ -25,16 +22,6 @@ namespace ast
                 return sym;
             auto value = builder.CreateLoad(sym->Value, "");
             return SymbolTable::Symbol(value, false);
-        }
-
-        inline static opt<SymbolTable::Symbol> Arr2Ptr(opt<SymbolTable::Symbol> sym, llvm::IRBuilder<> &builder)
-        {
-            if (!sym)
-                return std::nullopt;
-            if (!sym->Value->getType()->isArrayTy())
-                return sym;
-            sym->Value = builder.CreateBitCast(sym->Value, sym->Value->getType()->getArrayElementType()->getPointerTo());
-            return sym;
         }
 
         inline static opt<SymbolTable::Symbol> CastLLVMType(SymbolTable::Symbol sym, llvm::Type *toType, bool toIsRef,
@@ -69,42 +56,7 @@ namespace ast
                     }
                     return sym;
                 }
-                // array to pointer
-                if (sym.Value->getType()->isArrayTy())
-                {
-                    if (sym.Value->getType()->getArrayElementType() != toType->getPointerElementType())
-                    {
-                        ErrorHandler::PrintError("Cannot cast array to pointer due to different element type", loc);
-                        return std::nullopt;
-                    }
-                    return SymbolTable::Symbol(builder.CreateBitCast(sym.Value, toType), false);
-                }
                 ErrorHandler::PrintError("Cannot cast to pointer", loc);
-                return std::nullopt;
-            }
-            if (toType->isArrayTy())
-            {
-                // pointer to array
-                if (sym.Value->getType()->isPointerTy())
-                {
-                    if (sym.Value->getType()->getPointerElementType() != toType->getArrayElementType())
-                    {
-                        ErrorHandler::PrintError("Cannot cast pointer to array due to different element type", loc);
-                        return std::nullopt;
-                    }
-                    return SymbolTable::Symbol(builder.CreateBitCast(sym.Value, toType), false);
-                }
-                // array to array
-                if (sym.Value->getType()->isArrayTy())
-                {
-                    if (sym.Value->getType()->getArrayElementType() != toType->getArrayElementType())
-                    {
-                        ErrorHandler::PrintError("Cannot cast between arrays", loc);
-                        return std::nullopt;
-                    }
-                    return sym;
-                }
-                ErrorHandler::PrintError("Cannot cast to array", loc);
                 return std::nullopt;
             }
             if (toType->isIntegerTy())
@@ -151,7 +103,7 @@ namespace ast
                 ErrorHandler::PrintError("Cannot cast to float point", loc);
                 return std::nullopt;
             }
-            // object to object
+            // object to object, not fully implemented yet
             if (toType == sym.Value->getType())
                 return sym;
             ErrorHandler::PrintError("Cannot cast between objects", loc);
@@ -247,8 +199,6 @@ namespace ast
                 assert(false);
         }
 
-        // virtual bool Analyze(SymbolTable *syms);
-
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
         {
@@ -289,20 +239,6 @@ namespace ast
         }
 
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Name->GetLocation(); }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     auto res = syms->Search(_Name->GetName());
-        //     if (!res)
-        //     {
-        //         std::ostringstream ss;
-        //         ss << '\'' << _Name->GetName() << "' was not declared in this scope";
-        //         ErrorHandler::PrintError(ss.str(), _Name->GetLocation());
-        //         return false;
-        //     }
-        //     _ExprType = *res;
-        //     return true;
-        // }
 
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
@@ -366,13 +302,6 @@ namespace ast
 
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Left->GetLocation(); }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool l = _Left->Analyze(syms);
-        //     bool r = _Right->Analyze(syms);
-        //     return l && r;
-        // }
-
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
         {
@@ -401,8 +330,7 @@ namespace ast
             right = Dereference(right, builder);
             if (IsRelOp(_Op))
             {
-                if ((left->Value->getType()->isArrayTy() || left->Value->getType()->isPointerTy()) &&
-                    (right->Value->getType()->isArrayTy() || right->Value->getType()->isPointerTy()))
+                if (left->Value->getType()->isPointerTy() && right->Value->getType()->isPointerTy())
                 {
                     left->Value = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
                     right->Value = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
@@ -435,24 +363,23 @@ namespace ast
             }
             if (IsNumOp(_Op))
             {
-                if (_Op == SUB &&
-                    (left->Value->getType()->isArrayTy() || left->Value->getType()->isPointerTy()) &&
-                    (right->Value->getType()->isArrayTy() || right->Value->getType()->isPointerTy()))
+                // TODO: use GEP
+                if (_Op == SUB && left->Value->getType()->isPointerTy() && right->Value->getType()->isPointerTy())
                 {
                     auto newL = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
                     auto newR = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
                     return SymbolTable::Symbol(builder.CreateSub(newL, newR), false);
                 }
                 if ((_Op == ADD || _Op == SUB) &&
-                    (((left->Value->getType()->isArrayTy() || left->Value->getType()->isPointerTy()) && right->Value->getType()->isIntegerTy()) ||
-                     ((right->Value->getType()->isArrayTy() || right->Value->getType()->isPointerTy()) && left->Value->getType()->isIntegerTy())))
+                    ((left->Value->getType()->isPointerTy() && right->Value->getType()->isIntegerTy()) ||
+                     (right->Value->getType()->isPointerTy() && left->Value->getType()->isIntegerTy())))
                 {
                     auto newL = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
                     auto newR = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
                     llvm::Type *type;
-                    if (left->Value->getType()->isArrayTy() || left->Value->getType()->isPointerTy())
+                    if (left->Value->getType()->isPointerTy())
                         type = left->Value->getType();
-                    else if (right->Value->getType()->isArrayTy() || right->Value->getType()->isPointerTy())
+                    else if (right->Value->getType()->isPointerTy())
                         type = right->Value->getType();
                     else
                         assert(false);
@@ -527,11 +454,6 @@ namespace ast
 
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Operand->GetLocation(); }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     return _Operand->Analyze(syms);
-        // }
-
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
         {
@@ -563,16 +485,10 @@ namespace ast
             if (_Op == DEREF)
             {
                 value = Dereference(value, builder);
-                if (!value->Value->getType()->isArrayTy() && !value->Value->getType()->isPointerTy())
+                if (!value->Value->getType()->isPointerTy())
                 {
                     ErrorHandler::PrintError("Invalid dereference operator", _Operand->GetLocation());
                     return std::nullopt;
-                }
-                if (value->Value->getType()->isArrayTy())
-                {
-                    auto eleTy = value->Value->getType()->getArrayElementType();
-                    auto v = builder.CreateBitCast(value->Value, llvm::PointerType::get(eleTy, 0));
-                    return SymbolTable::Symbol(v, true);
                 }
                 if (value->Value->getType()->isPointerTy())
                     return SymbolTable::Symbol(value->Value, true);
@@ -594,6 +510,7 @@ namespace ast
                     ErrorHandler::PrintError("Expression must be an lvalue", _Operand->GetLocation());
                     return std::nullopt;
                 }
+                // not fully implemented yet
                 return std::nullopt;
             }
             return std::nullopt;
@@ -629,17 +546,6 @@ namespace ast
         }
 
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Func->GetLocation(); }
-
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool success = true;
-        //     if (!_Func->Analyze(syms))
-        //         success = false;
-        //     for (auto& i : _ArgList)
-        //         if (!i->Analyze(syms))
-        //             success = false;
-        //     return success;
-        // }
 
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
@@ -691,13 +597,6 @@ namespace ast
 
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Expr->GetLocation(); }
 
-        // inline virtual bool Analyze(SymbolTable *syms)
-        // {
-        //     bool l = _Left->Analyze(syms);
-        //     bool r = _Right->Analyze(syms);
-        //     return l && r;
-        // }
-
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
         {
@@ -708,9 +607,9 @@ namespace ast
                 return std::nullopt;
             expr = Dereference(expr, builder);
             index = Dereference(index, builder);
-            if (!expr->Value->getType()->isArrayTy() && !expr->Value->getType()->isPointerTy())
+            if (!expr->Value->getType()->isPointerTy())
             {
-                ErrorHandler::PrintError("Operand must be array or pointer", _Expr->GetLocation());
+                ErrorHandler::PrintError("Operand must be a pointer", _Expr->GetLocation());
                 return std::nullopt;
             }
             if (!index->Value->getType()->isIntegerTy())
@@ -718,17 +617,8 @@ namespace ast
                 ErrorHandler::PrintError("Operand must be integer", _Index->GetLocation());
                 return std::nullopt;
             }
-            // expr = Arr2Ptr(expr, builder);
             auto value = builder.CreateGEP(expr->Value, std::vector<llvm::Value *>{index->Value});
-            if (value->getType()->isArrayTy())
-            {
-                auto eleTy = value->getType()->getArrayElementType();
-                auto v = builder.CreateBitCast(value, llvm::PointerType::get(eleTy, 0));
-                return SymbolTable::Symbol(v, true);
-            }
-            if (value->getType()->isPointerTy())
-                return SymbolTable::Symbol(value, true);
-            assert(false);
+            return SymbolTable::Symbol(value, true);
         };
     };
 
