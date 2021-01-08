@@ -7,12 +7,15 @@
 %token VOID BOOL CHAR SHORT INT LONG FLOAT DOUBLE
 %token TRUE FALSE RETURN IF ELSE WHILE STRUCT FOR INC DEC
 %token ID_TEXT
-%token CONSTINT CONSTINT_BIN CONSTINT_OCT CONSTINT_HEX CONSTFP
+%token CONSTCHAR CONSTINT CONSTINT_BIN CONSTINT_OCT CONSTINT_HEX CONSTFP
 
-%right '='
-%left OR
-%left AND
-%left '<' '>' LE GE EQ NE
+%right '=' ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN SHL_ASSIGN SHR_ASSIGN AND_ASSIGN OR_ASSIGN XOR_ASSIGN
+%left '|'
+%left '^'
+%left '&'
+%left EQ NE
+%left '<' '>' LE GE
+%left SHL SHR
 %left '+' '-'
 %left '*' '/' '%'
 
@@ -27,24 +30,25 @@ ID:
 ;
 
 PrimaryExpression:
-  TRUE                { $$ = std::make_unique<ast::Constant>(true, _Scanner->GetLocation());                                         }
-| FALSE               { $$ = std::make_unique<ast::Constant>(false, _Scanner->GetLocation());                                        }
+  TRUE                { $$ = std::make_unique<ast::Constant>(true, _Scanner->GetLocation());                                        }
+| FALSE               { $$ = std::make_unique<ast::Constant>(false, _Scanner->GetLocation());                                       }
+| CONSTCHAR           { $$ = std::make_unique<ast::Constant>(_Scanner->matched()[1], _Scanner->GetLocation());                      }
 | CONSTINT            { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched()), _Scanner->GetLocation());              }
 | CONSTINT_BIN        { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched(), nullptr, 2), _Scanner->GetLocation());  }
 | CONSTINT_OCT        { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched(), nullptr, 8), _Scanner->GetLocation());  }
 | CONSTINT_HEX        { $$ = std::make_unique<ast::Constant>(std::stoi(_Scanner->matched(), nullptr, 16), _Scanner->GetLocation()); }
-| CONSTFP             { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()), _Scanner->GetLocation());               }
-| ID                  { $$ = std::make_unique<ast::Variable>($1);                                                                    }
-| '(' Expression ')'  { $$ = std::move($2);                                                                                          }
-| '(' error ')'       { $$ = nullptr;                                                                                                }
+| CONSTFP             { $$ = std::make_unique<ast::Constant>(std::stod(_Scanner->matched()), _Scanner->GetLocation());              }
+| ID                  { $$ = std::make_unique<ast::Variable>($1);                                                                   }
+| '(' Expression ')'  { $$ = std::move($2);                                                                                         }
+| '(' error ')'       { $$ = nullptr;                                                                                               }
 ;
 
 PostExpression:
   PrimaryExpression                  { $$ = std::move($1);                                                }
 | PostExpression '(' OptArgList ')'  { $$ = std::move($3); ast::cast<ast::CallExpr>($$)->SetFunc($1);     }
 | PostExpression '[' Expression ']'  { $$ = std::make_unique<ast::IndexExpr>($1, $3);                     }
-| PostExpression INC                 { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::INC_POST); }
-| PostExpression DEC                 { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::DEC_POST); }
+| PostExpression INC                 { $$ = std::make_unique<ast::UnOpExpr>($1, ast::UnOpExpr::INC_POST); }
+| PostExpression DEC                 { $$ = std::make_unique<ast::UnOpExpr>($1, ast::UnOpExpr::DEC_POST); }
 | PostExpression '(' error ')'       { $$ = nullptr;                                                      }
 ;
 
@@ -54,24 +58,41 @@ PreExpression:
 | '-' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NEG);     }
 | '*' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::DEREF);   }
 | '&' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::ADDR);    }
+| '!' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NOT);     }
+| '~' PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::NOT_BIT); }
 | INC PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::INC_PRE); }
 | DEC PreExpression  { $$ = std::make_unique<ast::UnOpExpr>($2, ast::UnOpExpr::DEC_PRE); }
 ;
 
 Expression:
-  PreExpression              { $$ = std::move($1);                                                         }
-| Expression '=' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ASSIGN);        }
-| Expression '<' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS);          }
-| Expression '>' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER);       }
-| Expression LE Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS_EQUAL);    }
-| Expression GE Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER_EQUAL); }
-| Expression EQ Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::EQUAL);         }
-| Expression NE Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::NOT_EQUAL);     }
-| Expression '+' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ADD);           }
-| Expression '-' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB);           }
-| Expression '*' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL);           }
-| Expression '/' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV);           }
-| Expression '%' Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MOD);           }
+  PreExpression                     { $$ = std::move($1);                                                         }
+| Expression '=' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ASSIGN);        }
+| Expression ADD_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ADD_ASSIGN);    }
+| Expression SUB_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB_ASSIGN);    }
+| Expression MUL_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL_ASSIGN);    }
+| Expression DIV_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV_ASSIGN);    }
+| Expression MOD_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MOD_ASSIGN);    }
+| Expression SHL_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SHL_ASSIGN);    }
+| Expression SHR_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SHR_ASSIGN);    }
+| Expression AND_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::AND_ASSIGN);    }
+| Expression OR_ASSIGN Expression   { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::OR_ASSIGN);     }
+| Expression XOR_ASSIGN Expression  { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::XOR_ASSIGN);    }
+| Expression '|' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::OR);            }
+| Expression '^' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::XOR);           }
+| Expression '&' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::AND);           }
+| Expression EQ Expression          { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::EQUAL);         }
+| Expression NE Expression          { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::NOT_EQUAL);     }
+| Expression '<' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS);          }
+| Expression '>' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER);       }
+| Expression LE Expression          { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::LESS_EQUAL);    }
+| Expression GE Expression          { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::GREATER_EQUAL); }
+| Expression SHL Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SHL);           }
+| Expression SHR Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SHR);           }
+| Expression '+' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::ADD);           }
+| Expression '-' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::SUB);           }
+| Expression '*' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MUL);           }
+| Expression '/' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::DIV);           }
+| Expression '%' Expression         { $$ = std::make_unique<ast::BiOpExpr>($1, $3, ast::BiOpExpr::MOD);           }
 ;
 
 Statement:

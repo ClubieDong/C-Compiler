@@ -67,7 +67,8 @@ namespace ast
                     if (sym.Value->getType()->getPrimitiveSizeInBits() != toType->getPrimitiveSizeInBits())
                     {
                         ErrorHandler::PrintWarning("Implicit integer cast", loc);
-                        sym.Value = builder.CreateIntCast(sym.Value, toType, true);
+                        bool isSigned = sym.Value->getType()->getPrimitiveSizeInBits() > 1;
+                        sym.Value = builder.CreateIntCast(sym.Value, toType, isSigned);
                     }
                     return sym;
                 }
@@ -174,13 +175,15 @@ namespace ast
     class Constant : public Expression
     {
     private:
-        std::variant<bool, int, double> _Value;
+        std::variant<bool, char, int, double> _Value;
         ErrorHandler::Location _Location;
 
     public:
         inline explicit Constant(bool value, const ErrorHandler::Location &loc)
             : _Value(value), _Location(loc) {}
         inline explicit Constant(int value, const ErrorHandler::Location &loc)
+            : _Value(value), _Location(loc) {}
+        inline explicit Constant(char value, const ErrorHandler::Location &loc)
             : _Value(value), _Location(loc) {}
         inline explicit Constant(double value, const ErrorHandler::Location &loc)
             : _Value(value), _Location(loc) {}
@@ -191,6 +194,8 @@ namespace ast
         {
             if (auto pv = std::get_if<bool>(&_Value))
                 os << hint << "Constant: " << (*pv ? "true" : "false") << '\n';
+            if (auto pv = std::get_if<char>(&_Value))
+                os << hint << "Constant: '" << *pv << "'\n";
             if (auto pv = std::get_if<int>(&_Value))
                 os << hint << "Constant: " << *pv << '\n';
             else if (auto pv = std::get_if<double>(&_Value))
@@ -204,20 +209,13 @@ namespace ast
         {
             llvm::Value *value;
             if (auto pv = std::get_if<bool>(&_Value))
-            {
-                auto type = llvm::Type::getInt1Ty(context);
-                value = llvm::ConstantInt::get(type, llvm::APInt(1, *pv, false));
-            }
+                value = llvm::ConstantInt::get(context, llvm::APInt(1, *pv, false));
+            else if (auto pv = std::get_if<char>(&_Value))
+                value = llvm::ConstantInt::get(context, llvm::APInt(8, *pv, true));
             else if (auto pv = std::get_if<int>(&_Value))
-            {
-                auto type = llvm::Type::getInt32Ty(context);
-                value = llvm::ConstantInt::get(type, llvm::APInt(32, *pv, true));
-            }
+                value = llvm::ConstantInt::get(context, llvm::APInt(32, *pv, true));
             else if (auto pv = std::get_if<double>(&_Value))
-            {
-                auto type = llvm::Type::getDoubleTy(context);
-                value = llvm::ConstantFP::get(type, llvm::APFloat(*pv));
-            }
+                value = llvm::ConstantFP::get(context, llvm::APFloat(*pv));
             else
                 assert(false);
             return SymbolTable::Symbol(value, false);
@@ -262,6 +260,16 @@ namespace ast
         enum BiOp
         {
             ASSIGN,
+            ADD_ASSIGN,
+            SUB_ASSIGN,
+            MUL_ASSIGN,
+            DIV_ASSIGN,
+            MOD_ASSIGN,
+            SHL_ASSIGN,
+            SHR_ASSIGN,
+            AND_ASSIGN,
+            OR_ASSIGN,
+            XOR_ASSIGN,
 
             LESS,
             GREATER,
@@ -274,16 +282,51 @@ namespace ast
             SUB,
             MUL,
             DIV,
+
             MOD,
+            SHL,
+            SHR,
+            AND,
+            OR,
+            XOR,
         };
 
     private:
         ptr<Expression> _Left, _Right;
         BiOp _Op;
 
-        inline static bool IsAssign(BiOp op) { return ASSIGN <= op && op <= ASSIGN; }
+        inline static bool IsAssign(BiOp op) { return ASSIGN <= op && op <= XOR_ASSIGN; }
         inline static bool IsRelOp(BiOp op) { return LESS <= op && op <= NOT_EQUAL; }
-        inline static bool IsNumOp(BiOp op) { return ADD <= op && op <= MOD; }
+        inline static bool IsNumOp(BiOp op) { return ADD <= op && op <= DIV; }
+        inline static bool IsIntOp(BiOp op) { return MOD <= op && op <= XOR; }
+        inline static BiOp RemoveAssignment(BiOp op)
+        {
+            switch (op)
+            {
+            case ADD_ASSIGN:
+                return ADD;
+            case SUB_ASSIGN:
+                return SUB;
+            case MUL_ASSIGN:
+                return MUL;
+            case DIV_ASSIGN:
+                return DIV;
+            case MOD_ASSIGN:
+                return MOD;
+            case SHL_ASSIGN:
+                return SHL;
+            case SHR_ASSIGN:
+                return SHR;
+            case AND_ASSIGN:
+                return AND;
+            case OR_ASSIGN:
+                return OR;
+            case XOR_ASSIGN:
+                return XOR;
+            default:
+                assert(false);
+            }
+        }
 
     public:
         inline explicit BiOpExpr(ptr<Base> &left, ptr<Base> &right, BiOp op)
@@ -301,6 +344,118 @@ namespace ast
         }
 
         inline virtual const ErrorHandler::Location &GetLocation() const override { return _Left->GetLocation(); }
+
+        inline opt<SymbolTable::Symbol> Calculate(opt<SymbolTable::Symbol> left, opt<SymbolTable::Symbol> right, BiOp op,
+                                                  SymbolTable &syms, llvm::LLVMContext &context,
+                                                  llvm::IRBuilder<> &builder)
+        {
+            left = Dereference(left, builder);
+            right = Dereference(right, builder);
+            if (IsRelOp(op))
+            {
+                if (left->Value->getType()->isPointerTy() && right->Value->getType()->isPointerTy())
+                {
+                    left->Value = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
+                    right->Value = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
+                }
+                else if ((left->Value->getType()->isFloatingPointTy() || left->Value->getType()->isIntegerTy()) &&
+                         (right->Value->getType()->isFloatingPointTy() || right->Value->getType()->isIntegerTy()))
+                    CastToCommonType(*left, *right, _Left->GetLocation(), builder, context);
+                else
+                {
+                    ErrorHandler::PrintError("Operand type is invalid", _Left->GetLocation());
+                    return std::nullopt;
+                }
+                switch (op)
+                {
+                case LESS:
+                    return SymbolTable::Symbol(builder.CreateICmpSLT(left->Value, right->Value), false);
+                case GREATER:
+                    return SymbolTable::Symbol(builder.CreateICmpSGT(left->Value, right->Value), false);
+                case LESS_EQUAL:
+                    return SymbolTable::Symbol(builder.CreateICmpSLE(left->Value, right->Value), false);
+                case GREATER_EQUAL:
+                    return SymbolTable::Symbol(builder.CreateICmpSGE(left->Value, right->Value), false);
+                case EQUAL:
+                    return SymbolTable::Symbol(builder.CreateICmpEQ(left->Value, right->Value), false);
+                case NOT_EQUAL:
+                    return SymbolTable::Symbol(builder.CreateICmpNE(left->Value, right->Value), false);
+                default:
+                    assert(false);
+                }
+            }
+            if (IsNumOp(op))
+            {
+                if (op == SUB && left->Value->getType()->isPointerTy() && right->Value->getType()->isPointerTy())
+                {
+                    auto newL = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
+                    auto newR = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
+                    return SymbolTable::Symbol(builder.CreateSub(newL, newR), false);
+                }
+                if (left->Value->getType()->isPointerTy() && right->Value->getType()->isIntegerTy())
+                {
+                    if (op == ADD)
+                    {
+                        auto value = builder.CreateGEP(left->Value, std::vector<llvm::Value *>{right->Value});
+                        return SymbolTable::Symbol(value, true);
+                    }
+                    if (op == SUB)
+                    {
+                        auto value = builder.CreateNeg(right->Value);
+                        value = builder.CreateGEP(left->Value, std::vector<llvm::Value *>{value});
+                        return SymbolTable::Symbol(value, true);
+                    }
+                }
+                if ((left->Value->getType()->isFloatingPointTy() || left->Value->getType()->isIntegerTy()) &&
+                    (right->Value->getType()->isFloatingPointTy() || right->Value->getType()->isIntegerTy()))
+                    CastToCommonType(*left, *right, _Left->GetLocation(), builder, context);
+                else
+                {
+                    ErrorHandler::PrintError("Operand type is invalid", _Left->GetLocation());
+                    return std::nullopt;
+                }
+                switch (op)
+                {
+                case ADD:
+                    return SymbolTable::Symbol(builder.CreateAdd(left->Value, right->Value), false);
+                case SUB:
+                    return SymbolTable::Symbol(builder.CreateSub(left->Value, right->Value), false);
+                case MUL:
+                    return SymbolTable::Symbol(builder.CreateMul(left->Value, right->Value), false);
+                case DIV:
+                    return SymbolTable::Symbol(builder.CreateSDiv(left->Value, right->Value), false);
+                default:
+                    assert(false);
+                }
+            }
+            if (IsIntOp(op))
+            {
+                if (!left->Value->getType()->isIntegerTy() || !right->Value->getType()->isIntegerTy())
+                {
+                    ErrorHandler::PrintError("Operands must be integer", _Left->GetLocation());
+                    return std::nullopt;
+                }
+                CastToCommonType(*left, *right, _Left->GetLocation(), builder, context);
+                switch (op)
+                {
+                case MOD:
+                    return SymbolTable::Symbol(builder.CreateSRem(left->Value, right->Value), false);
+                case SHL:
+                    return SymbolTable::Symbol(builder.CreateShl(left->Value, right->Value), false);
+                case SHR:
+                    return SymbolTable::Symbol(builder.CreateAShr(left->Value, right->Value), false);
+                case AND:
+                    return SymbolTable::Symbol(builder.CreateAnd(left->Value, right->Value), false);
+                case OR:
+                    return SymbolTable::Symbol(builder.CreateOr(left->Value, right->Value), false);
+                case XOR:
+                    return SymbolTable::Symbol(builder.CreateXor(left->Value, right->Value), false);
+                default:
+                    assert(false);
+                }
+            }
+            assert(false);
+        }
 
         inline virtual opt<SymbolTable::Symbol> CodeGen(SymbolTable &syms, llvm::LLVMContext &context,
                                                         llvm::IRBuilder<> &builder) override
@@ -321,103 +476,16 @@ namespace ast
                 return std::nullopt;
             if (IsAssign(_Op))
             {
-                // TODO: Compound assignment, could do recursively
-                // if (_Op != ASSIGN)
-                //     right = left + right; // for example
+                // Compound assignment
+                if (_Op != ASSIGN)
+                {
+                    right = Calculate(left, right, RemoveAssignment(_Op), syms, context, builder);
+                    if (!right)
+                        return std::nullopt;
+                }
                 return Assign(*left, *right, _Left->GetLocation(), builder);
             }
-            left = Dereference(left, builder);
-            right = Dereference(right, builder);
-            if (IsRelOp(_Op))
-            {
-                if (left->Value->getType()->isPointerTy() && right->Value->getType()->isPointerTy())
-                {
-                    left->Value = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
-                    right->Value = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
-                }
-                else if ((left->Value->getType()->isFloatingPointTy() || left->Value->getType()->isIntegerTy()) &&
-                         (right->Value->getType()->isFloatingPointTy() || right->Value->getType()->isIntegerTy()))
-                    CastToCommonType(*left, *right, _Left->GetLocation(), builder, context);
-                else
-                {
-                    ErrorHandler::PrintError("Operand type is invalid", _Left->GetLocation());
-                    return std::nullopt;
-                }
-                switch (_Op)
-                {
-                case LESS:
-                    return SymbolTable::Symbol(builder.CreateICmpULT(left->Value, right->Value), false);
-                case GREATER:
-                    return SymbolTable::Symbol(builder.CreateICmpUGT(left->Value, right->Value), false);
-                case LESS_EQUAL:
-                    return SymbolTable::Symbol(builder.CreateICmpULE(left->Value, right->Value), false);
-                case GREATER_EQUAL:
-                    return SymbolTable::Symbol(builder.CreateICmpUGE(left->Value, right->Value), false);
-                case EQUAL:
-                    return SymbolTable::Symbol(builder.CreateICmpEQ(left->Value, right->Value), false);
-                case NOT_EQUAL:
-                    return SymbolTable::Symbol(builder.CreateICmpNE(left->Value, right->Value), false);
-                default:
-                    assert(false);
-                }
-            }
-            if (IsNumOp(_Op))
-            {
-                // TODO: use GEP
-                if (_Op == SUB && left->Value->getType()->isPointerTy() && right->Value->getType()->isPointerTy())
-                {
-                    auto newL = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
-                    auto newR = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
-                    return SymbolTable::Symbol(builder.CreateSub(newL, newR), false);
-                }
-                if ((_Op == ADD || _Op == SUB) &&
-                    ((left->Value->getType()->isPointerTy() && right->Value->getType()->isIntegerTy()) ||
-                     (right->Value->getType()->isPointerTy() && left->Value->getType()->isIntegerTy())))
-                {
-                    auto newL = builder.CreateBitCast(left->Value, llvm::Type::getInt64Ty(context));
-                    auto newR = builder.CreateBitCast(right->Value, llvm::Type::getInt64Ty(context));
-                    llvm::Type *type;
-                    if (left->Value->getType()->isPointerTy())
-                        type = left->Value->getType();
-                    else if (right->Value->getType()->isPointerTy())
-                        type = right->Value->getType();
-                    else
-                        assert(false);
-                    // TODO: size of pointer element
-                    llvm::Value *value;
-                    if (_Op == ADD)
-                        value = builder.CreateAdd(newL, newR);
-                    else if (_Op == SUB)
-                        value = builder.CreateSub(newL, newR);
-                    else
-                        assert(false);
-                    return SymbolTable::Symbol(builder.CreateBitCast(value, type), false);
-                }
-                else if ((left->Value->getType()->isFloatingPointTy() || left->Value->getType()->isIntegerTy()) &&
-                         (right->Value->getType()->isFloatingPointTy() || right->Value->getType()->isIntegerTy()))
-                    CastToCommonType(*left, *right, _Left->GetLocation(), builder, context);
-                else
-                {
-                    ErrorHandler::PrintError("Operand type is invalid", _Left->GetLocation());
-                    return std::nullopt;
-                }
-                switch (_Op)
-                {
-                case ADD:
-                    return SymbolTable::Symbol(builder.CreateAdd(left->Value, right->Value), false);
-                case SUB:
-                    return SymbolTable::Symbol(builder.CreateSub(left->Value, right->Value), false);
-                case MUL:
-                    return SymbolTable::Symbol(builder.CreateMul(left->Value, right->Value), false);
-                case DIV:
-                    return SymbolTable::Symbol(builder.CreateSDiv(left->Value, right->Value), false);
-                case MOD:
-                    return SymbolTable::Symbol(builder.CreateSRem(left->Value, right->Value), false);
-                default:
-                    assert(false);
-                }
-            }
-            assert(false);
+            return Calculate(left, right, _Op, syms, context, builder);
         };
     };
 
@@ -433,7 +501,9 @@ namespace ast
             INC_POST,
             DEC_POST,
             INC_PRE,
-            DEC_PRE
+            DEC_PRE,
+            NOT,
+            NOT_BIT,
         };
 
     private:
@@ -510,8 +580,54 @@ namespace ast
                     ErrorHandler::PrintError("Expression must be an lvalue", _Operand->GetLocation());
                     return std::nullopt;
                 }
-                // not fully implemented yet
-                return std::nullopt;
+                auto derefValue = Dereference(value, builder);
+                llvm::Value *changedValue;
+                auto constantValue = _Op == INC_POST || _Op == INC_PRE ? 1 : -1;
+                auto constantSize = derefValue->Value->getType()->getPrimitiveSizeInBits();
+                auto constant = llvm::ConstantInt::get(context, llvm::APInt(constantSize, constantValue, true));
+                if (derefValue->Value->getType()->isIntegerTy())
+                    changedValue = builder.CreateAdd(derefValue->Value, constant);
+                else if (derefValue->Value->getType()->isPointerTy())
+                    changedValue = builder.CreateGEP(derefValue->Value, std::vector<llvm::Value *>{constant});
+                else
+                {
+                    ErrorHandler::PrintError("Operand type is invalid", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                builder.CreateStore(changedValue, value->Value);
+                if (_Op == INC_PRE || _Op == DEC_PRE)
+                    return value;
+                if (_Op == INC_POST || _Op == DEC_POST)
+                    return SymbolTable::Symbol(derefValue->Value, false);
+                assert(false);
+            }
+            if (_Op == NOT)
+            {
+                value = Dereference(value, builder);
+                if (!value->Value->getType()->isIntegerTy())
+                {
+                    ErrorHandler::PrintError("operand type is invalid for `!` operator", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                auto size = value->Value->getType()->getPrimitiveSizeInBits();
+                auto zero = llvm::ConstantInt::get(context, llvm::APInt(size, 0, false));
+                auto one = llvm::ConstantInt::get(context, llvm::APInt(1, 1, false));
+                auto res = builder.CreateICmpNE(value->Value, zero);
+                res = builder.CreateXor(res, one);
+                return SymbolTable::Symbol(res, false);
+            }
+            if (_Op == NOT_BIT)
+            {
+                value = Dereference(value, builder);
+                if (!value->Value->getType()->isIntegerTy())
+                {
+                    ErrorHandler::PrintError("operand type is invalid for `~` operator", _Operand->GetLocation());
+                    return std::nullopt;
+                }
+                auto size = value->Value->getType()->getPrimitiveSizeInBits();
+                auto negOne = llvm::ConstantInt::get(context, llvm::APInt(size, -1, true));
+                auto res = builder.CreateXor(value->Value, negOne);
+                return SymbolTable::Symbol(res, false);
             }
             return std::nullopt;
         };

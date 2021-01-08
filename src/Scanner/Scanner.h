@@ -37,7 +37,7 @@ private:
     // be exec'ed after the rules's actions.
     inline void postCode([[maybe_unused]] PostEnum_ type)
     {
-        if (matched() != "\n")
+        if (matched().back() != '\n')
             _Column += length();
         else
         {

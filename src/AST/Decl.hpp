@@ -288,15 +288,11 @@ namespace ast
                                                      llvm::Constant::getNullValue(type), name);
                 else
                 {
-                    auto parentFunc = builder.GetInsertBlock()->getParent();
-                    llvm::IRBuilder<> tempBuilder(&parentFunc->getEntryBlock(), parentFunc->getEntryBlock().begin());
-                    value = tempBuilder.CreateAlloca(type, 0, name);
+                    value = builder.CreateAlloca(type, 0, name);
                 }
                 if (type->isArrayTy())
                 {
-                    auto parentFunc = builder.GetInsertBlock()->getParent();
-                    llvm::IRBuilder<> tempBuilder(&parentFunc->getEntryBlock(), parentFunc->getEntryBlock().begin());
-                    auto ptrvalue = tempBuilder.CreateAlloca(type->getArrayElementType()->getPointerTo(), 0, name);
+                    auto ptrvalue = builder.CreateAlloca(type->getArrayElementType()->getPointerTo(), 0, name);
                     value = builder.CreatePointerCast(value, ptrvalue->getType()->getPointerElementType());
                     builder.CreateStore(value, ptrvalue);
                     value = ptrvalue;
