@@ -194,9 +194,9 @@ namespace ast
         {
             if (auto pv = std::get_if<bool>(&_Value))
                 os << hint << "Constant: " << (*pv ? "true" : "false") << '\n';
-            if (auto pv = std::get_if<char>(&_Value))
+            else if (auto pv = std::get_if<char>(&_Value))
                 os << hint << "Constant: '" << *pv << "'\n";
-            if (auto pv = std::get_if<int>(&_Value))
+            else if (auto pv = std::get_if<int>(&_Value))
                 os << hint << "Constant: " << *pv << '\n';
             else if (auto pv = std::get_if<double>(&_Value))
                 os << hint << "Constant: " << *pv << '\n';
@@ -334,8 +334,11 @@ namespace ast
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            constexpr const char *ENUM_NAMES[] = {"ASSIGN", "LESS", "GREATER", "LESS_EQUAL", "GREATER_EQUAL",
-                                                  "EQUAL", "NOT_EQUAL", "ADD", "SUB", "MUL", "DIV", "MOD"};
+            constexpr const char *ENUM_NAMES[] = {"ASSIGN", "ADD_ASSIGN", "SUB_ASSIGN", "MUL_ASSIGN", "DIV_ASSIGN",
+                                                  "MOD_ASSIGN", "SHL_ASSIGN", "SHR_ASSIGN", "AND_ASSIGN", "OR_ASSIGN",
+                                                  "XOR_ASSIGN", "LESS", "GREATER", "LESS_EQUAL", "GREATER_EQUAL", "EQUAL",
+                                                  "NOT_EQUAL", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL", "SHR", "AND",
+                                                  "OR", "XOR"};
             os << hint << "BiOpExpr: " << ENUM_NAMES[_Op] << '\n';
             os << hint << "\tLeft: \n";
             _Left->Show(os, hint + "\t\t");
@@ -516,8 +519,8 @@ namespace ast
 
         inline virtual void Show(std::ostream &os, const std::string &hint) const override
         {
-            constexpr const char *ENUM_NAMES[] = {"NEG", "POS", "DEREF", "ADDR",
-                                                  "INC_POST", "DEC_POST", "INC_PRE", "DEC_PRE"};
+            constexpr const char *ENUM_NAMES[] = {"POS", "NEG", "DEREF", "ADDR", "INC_POST", "DEC_POST",
+                                                  "INC_PRE", "DEC_PRE", "NOT", "NOT_BIT"};
             os << hint << "UnOpExpr: " << ENUM_NAMES[_Op] << '\n';
             _Operand->Show(os, hint + '\t');
         }

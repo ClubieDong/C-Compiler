@@ -1,0 +1,208 @@
+; ModuleID = 'Module'
+source_filename = "Module"
+
+define void @main() {
+entry:
+  call void @__main__()
+  ret void
+}
+
+declare i32 @getchar()
+
+declare i32 @putchar(i32)
+
+define void @output(i32 %n) {
+entry:
+  %0 = alloca i32
+  store i32 %n, i32* %0
+  %1 = load i32, i32* %0
+  %2 = icmp slt i32 %1, 0
+  br i1 %2, label %if.then, label %if.else
+
+if.then:                                          ; preds = %entry
+  %3 = call i32 @putchar(i32 45)
+  %4 = load i32, i32* %0
+  %5 = sub i32 0, %4
+  store i32 %5, i32* %0
+  br label %if.merge
+
+if.else:                                          ; preds = %entry
+  %6 = load i32, i32* %0
+  %7 = icmp eq i32 %6, 0
+  br i1 %7, label %if.then1, label %if.else2
+
+if.merge:                                         ; preds = %if.merge3, %if.then
+  %num = alloca [20 x i32]
+  %num4 = alloca i32*
+  %8 = bitcast [20 x i32]* %num to i32*
+  store i32* %8, i32** %num4
+  %idx = alloca i32
+  store i32 0, i32* %idx
+  br label %while.cond
+
+if.then1:                                         ; preds = %if.else
+  %9 = call i32 @putchar(i32 48)
+  ret void
+
+if.else2:                                         ; preds = %if.else
+  br label %if.merge3
+
+if.merge3:                                        ; preds = %if.else2, %return.after
+  br label %if.merge
+
+return.after:                                     ; No predecessors!
+  br label %if.merge3
+
+while.cond:                                       ; preds = %while.body, %if.merge
+  %10 = load i32, i32* %0
+  %11 = icmp ne i32 %10, 0
+  br i1 %11, label %while.body, label %while.merge
+
+while.body:                                       ; preds = %while.cond
+  %12 = load i32, i32* %0
+  %13 = srem i32 %12, 10
+  %14 = load i32*, i32** %num4
+  %15 = load i32, i32* %idx
+  %16 = getelementptr i32, i32* %14, i32 %15
+  store i32 %13, i32* %16
+  %17 = load i32, i32* %0
+  %18 = sdiv i32 %17, 10
+  store i32 %18, i32* %0
+  %19 = load i32, i32* %idx
+  %20 = add i32 %19, 1
+  store i32 %20, i32* %idx
+  br label %while.cond
+
+while.merge:                                      ; preds = %while.cond
+  %21 = load i32, i32* %idx
+  %22 = add i32 %21, -1
+  store i32 %22, i32* %idx
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.body, %while.merge
+  %23 = load i32, i32* %idx
+  %24 = icmp sge i32 %23, 0
+  br i1 %24, label %for.body, label %for.merge
+
+for.body:                                         ; preds = %for.cond
+  %25 = load i32*, i32** %num4
+  %26 = load i32, i32* %idx
+  %27 = getelementptr i32, i32* %25, i32 %26
+  %28 = load i32, i32* %27
+  %29 = add i32 %28, 48
+  %30 = call i32 @putchar(i32 %29)
+  %31 = load i32, i32* %idx
+  %32 = add i32 %31, -1
+  store i32 %32, i32* %idx
+  br label %for.cond
+
+for.merge:                                        ; preds = %for.cond
+  ret void
+}
+
+define i32 @input() {
+entry:
+  %n = alloca i32
+  store i32 0, i32* %n
+  %t = alloca i32
+  %0 = call i32 @getchar()
+  store i32 %0, i32* %t
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.body, %entry
+  %1 = load i32, i32* %t
+  %2 = icmp sle i32 48, %1
+  %3 = load i32, i32* %t
+  %4 = icmp sle i32 %3, 57
+  %5 = and i1 %2, %4
+  br i1 %5, label %while.body, label %while.merge
+
+while.body:                                       ; preds = %while.cond
+  %6 = load i32, i32* %n
+  %7 = mul i32 %6, 10
+  %8 = load i32, i32* %t
+  %9 = add i32 %7, %8
+  %10 = sub i32 %9, 48
+  store i32 %10, i32* %n
+  %11 = call i32 @getchar()
+  store i32 %11, i32* %t
+  br label %while.cond
+
+while.merge:                                      ; preds = %while.cond
+  %12 = load i32, i32* %n
+  ret i32 %12
+
+return.after:                                     ; No predecessors!
+  ret i32 0
+}
+
+define void @__main__() {
+entry:
+  %x = alloca i32
+  %y = alloca i32
+  store i32 45, i32* %x
+  %0 = load i32, i32* %x
+  %1 = icmp sge i32 %0, 10
+  br i1 %1, label %if.then, label %if.else
+
+if.then:                                          ; preds = %entry
+  %2 = load i32, i32* %x
+  %3 = icmp sge i32 %2, 20
+  br i1 %3, label %if.then1, label %if.else2
+
+if.else:                                          ; preds = %entry
+  store i32 0, i32* %y
+  br label %if.merge
+
+if.merge:                                         ; preds = %if.else, %if.merge3
+  %4 = load i32, i32* %y
+  call void @output(i32 %4)
+  ret void
+
+if.then1:                                         ; preds = %if.then
+  %5 = load i32, i32* %x
+  %6 = icmp sge i32 %5, 30
+  br i1 %6, label %if.then4, label %if.else5
+
+if.else2:                                         ; preds = %if.then
+  store i32 1, i32* %y
+  br label %if.merge3
+
+if.merge3:                                        ; preds = %if.else2, %if.merge6
+  br label %if.merge
+
+if.then4:                                         ; preds = %if.then1
+  %7 = load i32, i32* %x
+  %8 = icmp sge i32 %7, 40
+  br i1 %8, label %if.then7, label %if.else8
+
+if.else5:                                         ; preds = %if.then1
+  store i32 2, i32* %y
+  br label %if.merge6
+
+if.merge6:                                        ; preds = %if.else5, %if.merge9
+  br label %if.merge3
+
+if.then7:                                         ; preds = %if.then4
+  %9 = load i32, i32* %x
+  %10 = icmp sge i32 %9, 50
+  br i1 %10, label %if.then10, label %if.else11
+
+if.else8:                                         ; preds = %if.then4
+  store i32 3, i32* %y
+  br label %if.merge9
+
+if.merge9:                                        ; preds = %if.else8, %if.merge12
+  br label %if.merge6
+
+if.then10:                                        ; preds = %if.then7
+  store i32 -1, i32* %y
+  br label %if.merge12
+
+if.else11:                                        ; preds = %if.then7
+  store i32 4, i32* %y
+  br label %if.merge12
+
+if.merge12:                                       ; preds = %if.else11, %if.then10
+  br label %if.merge9
+}

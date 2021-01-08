@@ -1,0 +1,532 @@
+Declaration: 
+	VarDeclaration: 
+		Type: 
+			BasicType: INT
+		Var: 
+			InitDecl: 
+				Var: 
+					FuncDecl: 
+						ID: getchar
+Declaration: 
+	VarDeclaration: 
+		Type: 
+			BasicType: INT
+		Var: 
+			InitDecl: 
+				Var: 
+					FuncDecl: 
+						ID: putchar
+						Param: 
+							Type: 
+								BasicType: INT
+							Decl: 
+								VarDecl: 
+									ID: ch
+Declaration: 
+	FuncDeclaration: 
+		Type: 
+			BasicType: VOID
+		FuncDecl: 
+			FuncDecl: 
+				ID: output
+				Param: 
+					Type: 
+						BasicType: INT
+					Decl: 
+						VarDecl: 
+							ID: n
+		Body: 
+			StatementList: 
+				IfStmt
+					Condition: 
+						BiOpExpr: LESS
+							Left: 
+								Variable: 
+									ID: n
+							Right: 
+								Constant: 0
+					Then: 
+						StatementList: 
+							CallExpr: 
+								Function: 
+									Variable: 
+										ID: putchar
+								Argument: 
+									Constant: '-'
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: n
+								Right: 
+									UnOpExpr: NEG
+										Variable: 
+											ID: n
+					Else: 
+						IfStmt
+							Condition: 
+								BiOpExpr: EQUAL
+									Left: 
+										Variable: 
+											ID: n
+									Right: 
+										Constant: 0
+							Then: 
+								StatementList: 
+									CallExpr: 
+										Function: 
+											Variable: 
+												ID: putchar
+										Argument: 
+											Constant: '0'
+									ReturnStmt
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								ArrayDecl: 
+									Size: 
+										Constant: 20
+									Type: 
+										VarDecl: 
+											ID: num
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: idx
+							Init: 
+								Constant: 0
+				WhileStmt: 
+					Condition: 
+						BiOpExpr: NOT_EQUAL
+							Left: 
+								Variable: 
+									ID: n
+							Right: 
+								Constant: 0
+					Loop body: 
+						StatementList: 
+							BiOpExpr: ASSIGN
+								Left: 
+									IndexExpr: 
+										Expr: 
+											Variable: 
+												ID: num
+										Index: 
+											Variable: 
+												ID: idx
+								Right: 
+									BiOpExpr: MOD
+										Left: 
+											Variable: 
+												ID: n
+										Right: 
+											Constant: 10
+							BiOpExpr: DIV_ASSIGN
+								Left: 
+									Variable: 
+										ID: n
+								Right: 
+									Constant: 10
+							UnOpExpr: INC_PRE
+								Variable: 
+									ID: idx
+				ForStmt: 
+					Init statement: 
+						UnOpExpr: DEC_PRE
+							Variable: 
+								ID: idx
+					Condition: 
+						BiOpExpr: GREATER_EQUAL
+							Left: 
+								Variable: 
+									ID: idx
+							Right: 
+								Constant: 0
+					Increment statement: 
+						UnOpExpr: DEC_PRE
+							Variable: 
+								ID: idx
+					Loop body: 
+						CallExpr: 
+							Function: 
+								Variable: 
+									ID: putchar
+							Argument: 
+								BiOpExpr: ADD
+									Left: 
+										IndexExpr: 
+											Expr: 
+												Variable: 
+													ID: num
+											Index: 
+												Variable: 
+													ID: idx
+									Right: 
+										Constant: '0'
+Declaration: 
+	FuncDeclaration: 
+		Type: 
+			BasicType: INT
+		FuncDecl: 
+			FuncDecl: 
+				ID: input
+		Body: 
+			StatementList: 
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: n
+							Init: 
+								Constant: 0
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: t
+							Init: 
+								CallExpr: 
+									Function: 
+										Variable: 
+											ID: getchar
+									No Arguments
+				WhileStmt: 
+					Condition: 
+						BiOpExpr: AND
+							Left: 
+								BiOpExpr: LESS_EQUAL
+									Left: 
+										Constant: '0'
+									Right: 
+										Variable: 
+											ID: t
+							Right: 
+								BiOpExpr: LESS_EQUAL
+									Left: 
+										Variable: 
+											ID: t
+									Right: 
+										Constant: '9'
+					Loop body: 
+						StatementList: 
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: n
+								Right: 
+									BiOpExpr: SUB
+										Left: 
+											BiOpExpr: ADD
+												Left: 
+													BiOpExpr: MUL
+														Left: 
+															Variable: 
+																ID: n
+														Right: 
+															Constant: 10
+												Right: 
+													Variable: 
+														ID: t
+										Right: 
+											Constant: '0'
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: t
+								Right: 
+									CallExpr: 
+										Function: 
+											Variable: 
+												ID: getchar
+										No Arguments
+				ReturnStmt: 
+					Variable: 
+						ID: n
+Declaration: 
+	FuncDeclaration: 
+		Type: 
+			BasicType: VOID
+		FuncDecl: 
+			FuncDecl: 
+				ID: main
+		Body: 
+			StatementList: 
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								ArrayDecl: 
+									Size: 
+										Constant: 5
+									Type: 
+										VarDecl: 
+											ID: array
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: a
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: b
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: c
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: d
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: e
+				BiOpExpr: ASSIGN
+					Left: 
+						IndexExpr: 
+							Expr: 
+								Variable: 
+									ID: array
+							Index: 
+								Constant: 0
+					Right: 
+						Constant: 0
+				BiOpExpr: ASSIGN
+					Left: 
+						IndexExpr: 
+							Expr: 
+								Variable: 
+									ID: array
+							Index: 
+								Constant: 1
+					Right: 
+						Constant: 1
+				BiOpExpr: ASSIGN
+					Left: 
+						IndexExpr: 
+							Expr: 
+								Variable: 
+									ID: array
+							Index: 
+								Constant: 2
+					Right: 
+						Constant: 2
+				BiOpExpr: ASSIGN
+					Left: 
+						IndexExpr: 
+							Expr: 
+								Variable: 
+									ID: array
+							Index: 
+								Constant: 3
+					Right: 
+						Constant: 3
+				BiOpExpr: ASSIGN
+					Left: 
+						IndexExpr: 
+							Expr: 
+								Variable: 
+									ID: array
+							Index: 
+								Constant: 4
+					Right: 
+						Constant: 4
+				BiOpExpr: ASSIGN
+					Left: 
+						Variable: 
+							ID: a
+					Right: 
+						BiOpExpr: MUL
+							Left: 
+								Constant: 10
+							Right: 
+								IndexExpr: 
+									Expr: 
+										Variable: 
+											ID: array
+									Index: 
+										Constant: 0
+				BiOpExpr: ASSIGN
+					Left: 
+						Variable: 
+							ID: b
+					Right: 
+						BiOpExpr: MUL
+							Left: 
+								Constant: 5
+							Right: 
+								IndexExpr: 
+									Expr: 
+										Variable: 
+											ID: array
+									Index: 
+										Constant: 1
+				BiOpExpr: ASSIGN
+					Left: 
+						Variable: 
+							ID: c
+					Right: 
+						BiOpExpr: MUL
+							Left: 
+								Constant: 2
+							Right: 
+								IndexExpr: 
+									Expr: 
+										Variable: 
+											ID: array
+									Index: 
+										Constant: 2
+				BiOpExpr: ASSIGN
+					Left: 
+						Variable: 
+							ID: d
+					Right: 
+						BiOpExpr: MUL
+							Left: 
+								Constant: 20
+							Right: 
+								IndexExpr: 
+									Expr: 
+										Variable: 
+											ID: array
+									Index: 
+										Constant: 3
+				BiOpExpr: ASSIGN
+					Left: 
+						Variable: 
+							ID: e
+					Right: 
+						BiOpExpr: DIV
+							Left: 
+								BiOpExpr: MUL
+									Left: 
+										Constant: 10
+									Right: 
+										IndexExpr: 
+											Expr: 
+												Variable: 
+													ID: array
+											Index: 
+												Constant: 4
+							Right: 
+								IndexExpr: 
+									Expr: 
+										Variable: 
+											ID: array
+									Index: 
+										Constant: 2
+				BiOpExpr: ASSIGN
+					Left: 
+						IndexExpr: 
+							Expr: 
+								Variable: 
+									ID: array
+							Index: 
+								Constant: 0
+					Right: 
+						BiOpExpr: DIV
+							Left: 
+								BiOpExpr: SUB
+									Left: 
+										BiOpExpr: SUB
+											Left: 
+												BiOpExpr: ADD
+													Left: 
+														Variable: 
+															ID: b
+													Right: 
+														BiOpExpr: MUL
+															Left: 
+																Variable: 
+																	ID: c
+															Right: 
+																Variable: 
+																	ID: e
+											Right: 
+												Variable: 
+													ID: d
+									Right: 
+										Constant: 1
+							Right: 
+								BiOpExpr: ADD
+									Left: 
+										IndexExpr: 
+											Expr: 
+												Variable: 
+													ID: array
+											Index: 
+												Constant: 0
+									Right: 
+										BiOpExpr: DIV
+											Left: 
+												BiOpExpr: MUL
+													Left: 
+														Variable: 
+															ID: e
+													Right: 
+														IndexExpr: 
+															Expr: 
+																Variable: 
+																	ID: array
+															Index: 
+																Constant: 3
+											Right: 
+												BiOpExpr: ADD
+													Left: 
+														IndexExpr: 
+															Expr: 
+																Variable: 
+																	ID: array
+															Index: 
+																Constant: 2
+													Right: 
+														IndexExpr: 
+															Expr: 
+																Variable: 
+																	ID: array
+															Index: 
+																Constant: 3
+				CallExpr: 
+					Function: 
+						Variable: 
+							ID: output
+					Argument: 
+						BiOpExpr: MUL
+							Left: 
+								IndexExpr: 
+									Expr: 
+										Variable: 
+											ID: array
+									Index: 
+										Constant: 0
+							Right: 
+								Variable: 
+									ID: b

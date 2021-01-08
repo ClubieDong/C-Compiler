@@ -1,0 +1,334 @@
+Declaration: 
+	VarDeclaration: 
+		Type: 
+			BasicType: INT
+		Var: 
+			InitDecl: 
+				Var: 
+					FuncDecl: 
+						ID: getchar
+Declaration: 
+	VarDeclaration: 
+		Type: 
+			BasicType: INT
+		Var: 
+			InitDecl: 
+				Var: 
+					FuncDecl: 
+						ID: putchar
+						Param: 
+							Type: 
+								BasicType: INT
+							Decl: 
+								VarDecl: 
+									ID: ch
+Declaration: 
+	FuncDeclaration: 
+		Type: 
+			BasicType: VOID
+		FuncDecl: 
+			FuncDecl: 
+				ID: output
+				Param: 
+					Type: 
+						BasicType: INT
+					Decl: 
+						VarDecl: 
+							ID: n
+		Body: 
+			StatementList: 
+				IfStmt
+					Condition: 
+						BiOpExpr: LESS
+							Left: 
+								Variable: 
+									ID: n
+							Right: 
+								Constant: 0
+					Then: 
+						StatementList: 
+							CallExpr: 
+								Function: 
+									Variable: 
+										ID: putchar
+								Argument: 
+									Constant: '-'
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: n
+								Right: 
+									UnOpExpr: NEG
+										Variable: 
+											ID: n
+					Else: 
+						IfStmt
+							Condition: 
+								BiOpExpr: EQUAL
+									Left: 
+										Variable: 
+											ID: n
+									Right: 
+										Constant: 0
+							Then: 
+								StatementList: 
+									CallExpr: 
+										Function: 
+											Variable: 
+												ID: putchar
+										Argument: 
+											Constant: '0'
+									ReturnStmt
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								ArrayDecl: 
+									Size: 
+										Constant: 20
+									Type: 
+										VarDecl: 
+											ID: num
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: idx
+							Init: 
+								Constant: 0
+				WhileStmt: 
+					Condition: 
+						BiOpExpr: NOT_EQUAL
+							Left: 
+								Variable: 
+									ID: n
+							Right: 
+								Constant: 0
+					Loop body: 
+						StatementList: 
+							BiOpExpr: ASSIGN
+								Left: 
+									IndexExpr: 
+										Expr: 
+											Variable: 
+												ID: num
+										Index: 
+											Variable: 
+												ID: idx
+								Right: 
+									BiOpExpr: MOD
+										Left: 
+											Variable: 
+												ID: n
+										Right: 
+											Constant: 10
+							BiOpExpr: DIV_ASSIGN
+								Left: 
+									Variable: 
+										ID: n
+								Right: 
+									Constant: 10
+							UnOpExpr: INC_PRE
+								Variable: 
+									ID: idx
+				ForStmt: 
+					Init statement: 
+						UnOpExpr: DEC_PRE
+							Variable: 
+								ID: idx
+					Condition: 
+						BiOpExpr: GREATER_EQUAL
+							Left: 
+								Variable: 
+									ID: idx
+							Right: 
+								Constant: 0
+					Increment statement: 
+						UnOpExpr: DEC_PRE
+							Variable: 
+								ID: idx
+					Loop body: 
+						CallExpr: 
+							Function: 
+								Variable: 
+									ID: putchar
+							Argument: 
+								BiOpExpr: ADD
+									Left: 
+										IndexExpr: 
+											Expr: 
+												Variable: 
+													ID: num
+											Index: 
+												Variable: 
+													ID: idx
+									Right: 
+										Constant: '0'
+Declaration: 
+	FuncDeclaration: 
+		Type: 
+			BasicType: INT
+		FuncDecl: 
+			FuncDecl: 
+				ID: input
+		Body: 
+			StatementList: 
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: n
+							Init: 
+								Constant: 0
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: t
+							Init: 
+								CallExpr: 
+									Function: 
+										Variable: 
+											ID: getchar
+									No Arguments
+				WhileStmt: 
+					Condition: 
+						BiOpExpr: AND
+							Left: 
+								BiOpExpr: LESS_EQUAL
+									Left: 
+										Constant: '0'
+									Right: 
+										Variable: 
+											ID: t
+							Right: 
+								BiOpExpr: LESS_EQUAL
+									Left: 
+										Variable: 
+											ID: t
+									Right: 
+										Constant: '9'
+					Loop body: 
+						StatementList: 
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: n
+								Right: 
+									BiOpExpr: SUB
+										Left: 
+											BiOpExpr: ADD
+												Left: 
+													BiOpExpr: MUL
+														Left: 
+															Variable: 
+																ID: n
+														Right: 
+															Constant: 10
+												Right: 
+													Variable: 
+														ID: t
+										Right: 
+											Constant: '0'
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: t
+								Right: 
+									CallExpr: 
+										Function: 
+											Variable: 
+												ID: getchar
+										No Arguments
+				ReturnStmt: 
+					Variable: 
+						ID: n
+Declaration: 
+	FuncDeclaration: 
+		Type: 
+			BasicType: VOID
+		FuncDecl: 
+			FuncDecl: 
+				ID: main
+		Body: 
+			StatementList: 
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: i
+				VarDeclaration: 
+					Type: 
+						BasicType: INT
+					Var: 
+						InitDecl: 
+							Var: 
+								VarDecl: 
+									ID: j
+				BiOpExpr: ASSIGN
+					Left: 
+						Variable: 
+							ID: i
+					Right: 
+						Constant: 0
+				BiOpExpr: ASSIGN
+					Left: 
+						Variable: 
+							ID: j
+					Right: 
+						Constant: 1
+				WhileStmt: 
+					Condition: 
+						BiOpExpr: LESS
+							Left: 
+								Variable: 
+									ID: i
+							Right: 
+								Constant: 10
+					Loop body: 
+						StatementList: 
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: i
+								Right: 
+									BiOpExpr: ADD
+										Left: 
+											Variable: 
+												ID: i
+										Right: 
+											Constant: 1
+							BiOpExpr: ASSIGN
+								Left: 
+									Variable: 
+										ID: j
+								Right: 
+									BiOpExpr: ADD
+										Left: 
+											Variable: 
+												ID: j
+										Right: 
+											Variable: 
+												ID: i
+				CallExpr: 
+					Function: 
+						Variable: 
+							ID: output
+					Argument: 
+						Variable: 
+							ID: i
+				CallExpr: 
+					Function: 
+						Variable: 
+							ID: output
+					Argument: 
+						Variable: 
+							ID: j
